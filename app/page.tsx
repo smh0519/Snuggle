@@ -47,8 +47,15 @@ export default function Home() {
       <header className="relative z-40 border-b border-black/10 bg-white dark:border-white/10 dark:bg-black">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           {/* Logo */}
-          <div className="text-xl font-bold text-black dark:text-white">
-            Snuggle
+          <div className="relative flex items-center">
+            <span className="text-xl font-bold text-black dark:text-white">
+              Snuggle
+            </span>
+            {/* <img
+              src="/icon.png"
+              alt=""
+              className="absolute -left-19 top-1/2 h-9 -translate-y-1/2 translate-x-1/2 object-contain"
+            /> */}
           </div>
 
           {/* Navigation */}

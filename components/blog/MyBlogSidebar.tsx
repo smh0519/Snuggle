@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
-import CreateBlogModal from './CreateBlogModal'
 
 interface Blog {
   id: string
@@ -19,7 +18,6 @@ interface MyBlogSidebarProps {
 export default function MyBlogSidebar({ user }: MyBlogSidebarProps) {
   const [blog, setBlog] = useState<Blog | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isModalOpen, setIsModalOpen] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -44,11 +42,6 @@ export default function MyBlogSidebar({ user }: MyBlogSidebarProps) {
 
     fetchBlog()
   }, [user])
-
-  const handleBlogCreated = (newBlog: Blog) => {
-    setBlog(newBlog)
-    setIsModalOpen(false)
-  }
 
   // 비로그인 상태
   if (!user) {
@@ -121,26 +114,17 @@ export default function MyBlogSidebar({ user }: MyBlogSidebarProps) {
 
   // 블로그가 없는 경우
   return (
-    <>
-      <div className="rounded-2xl border border-black/10 p-6 dark:border-white/10">
-        <h3 className="font-semibold text-black dark:text-white">내 블로그</h3>
-        <p className="mt-2 text-sm text-black/50 dark:text-white/50">
-          아직 블로그가 없습니다
-        </p>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="mt-4 w-full rounded-lg bg-black py-2.5 text-sm font-medium text-white dark:bg-white dark:text-black"
-        >
-          블로그 만들기
-        </button>
-      </div>
-
-      <CreateBlogModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onBlogCreated={handleBlogCreated}
-        userId={user.id}
-      />
-    </>
+    <div className="rounded-2xl border border-black/10 p-6 dark:border-white/10">
+      <h3 className="font-semibold text-black dark:text-white">내 블로그</h3>
+      <p className="mt-2 text-sm text-black/50 dark:text-white/50">
+        아직 블로그가 없습니다
+      </p>
+      <a
+        href="/create-blog"
+        className="mt-4 block w-full rounded-lg bg-black py-2.5 text-center text-sm font-medium text-white dark:bg-white dark:text-black"
+      >
+        블로그 만들기
+      </a>
+    </div>
   )
 }

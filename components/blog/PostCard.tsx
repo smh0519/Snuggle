@@ -14,15 +14,29 @@ interface PostCardProps {
   }
 }
 
-// HTML 태그 제거 함수
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').replace(/\n/g, ' ').trim()
+// 첫 번째 문단 텍스트만 추출 (코드블록, 이미지 제외)
+function getFirstParagraph(html: string): string {
+  // 코드블록 제거
+  const withoutCode = html.replace(/<pre[\s\S]*?<\/pre>/gi, '')
+  // 이미지 제거
+  const withoutImages = withoutCode.replace(/<img[^>]*>/gi, '')
+  // 첫 번째 <p> 태그 내용 추출
+  const pMatch = withoutImages.match(/<p[^>]*>([\s\S]*?)<\/p>/i)
+  if (pMatch) {
+    // HTML 태그 제거하고 텍스트만 반환
+    const text = pMatch[1].replace(/<[^>]*>/g, '').trim()
+    if (text) return text
+  }
+  // p 태그가 없으면 전체에서 HTML 제거 후 첫 줄 반환
+  const plainText = withoutImages.replace(/<[^>]*>/g, '').trim()
+  const firstLine = plainText.split('\n')[0]?.trim()
+  return firstLine || ''
 }
 
 export default function PostCard({ post }: PostCardProps) {
   const blogName = post.blog?.name || '알 수 없음'
   const blogImage = post.blog?.thumbnail_url
-  const preview = post.content ? stripHtml(post.content).slice(0, 100) : ''
+  const preview = post.content ? getFirstParagraph(post.content).slice(0, 150) : ''
   const date = new Date(post.created_at).toLocaleDateString('ko-KR', {
     year: 'numeric',
     month: 'short',
@@ -50,8 +64,8 @@ export default function PostCard({ post }: PostCardProps) {
               {post.title}
             </h3>
             {preview && (
-              <p className="mt-1 text-sm text-black/60 dark:text-white/60 line-clamp-2">
-                {preview}...
+              <p className="mt-1 text-sm text-black/60 dark:text-white/60 line-clamp-1">
+                {preview}
               </p>
             )}
 

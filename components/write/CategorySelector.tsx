@@ -9,16 +9,18 @@ interface Category {
 
 interface CategorySelectorProps {
     categories: Category[]
-    selectedId: string | null
-    onChange: (id: string | null) => void
+    selectedIds: string[]
+    onChange: (ids: string[]) => void
     onAddCategory?: (name: string) => Promise<Category | null>
+    maxSelection?: number
 }
 
 export default function CategorySelector({
     categories,
-    selectedId,
+    selectedIds,
     onChange,
     onAddCategory,
+    maxSelection = 5,
 }: CategorySelectorProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [newCategoryName, setNewCategoryName] = useState('')
@@ -27,7 +29,7 @@ export default function CategorySelector({
     const dropdownRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLInputElement>(null)
 
-    const selectedCategory = categories.find(c => c.id === selectedId)
+    const selectedCategories = categories.filter(c => selectedIds.includes(c.id))
 
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
@@ -55,74 +57,110 @@ export default function CategorySelector({
         setIsAdding(false)
 
         if (newCategory) {
-            onChange(newCategory.id)
+            if (selectedIds.length < maxSelection) {
+                onChange([...selectedIds, newCategory.id])
+            }
             setNewCategoryName('')
             setShowAddInput(false)
-            setIsOpen(false)
         }
+    }
+
+    const toggleCategory = (categoryId: string) => {
+        if (selectedIds.includes(categoryId)) {
+            onChange(selectedIds.filter(id => id !== categoryId))
+        } else if (selectedIds.length < maxSelection) {
+            onChange([...selectedIds, categoryId])
+        }
+    }
+
+    const removeCategory = (categoryId: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        onChange(selectedIds.filter(id => id !== categoryId))
     }
 
     return (
         <div className="relative" ref={dropdownRef}>
-            <button
-                type="button"
-                onClick={() => setIsOpen(!isOpen)}
-                className="flex items-center gap-2 rounded-lg border border-black/10 px-4 py-2.5 text-sm transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
-            >
-                <svg className="h-4 w-4 text-black/50 dark:text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                <span className={selectedCategory ? 'text-black dark:text-white' : 'text-black/50 dark:text-white/50'}>
-                    {selectedCategory?.name || '카테고리 선택'}
-                </span>
-                <svg className={`h-4 w-4 text-black/50 transition-transform dark:text-white/50 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-            </button>
+            {/* 선택된 카테고리 표시 */}
+            <div className="flex flex-wrap items-center gap-2">
+                {selectedCategories.map(category => (
+                    <span
+                        key={category.id}
+                        className="flex items-center gap-1 rounded-full bg-black/10 px-3 py-1.5 text-sm text-black dark:bg-white/10 dark:text-white"
+                    >
+                        {category.name}
+                        <button
+                            type="button"
+                            onClick={(e) => removeCategory(category.id, e)}
+                            className="ml-1 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
+                        >
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </span>
+                ))}
+
+                <button
+                    type="button"
+                    onClick={() => setIsOpen(!isOpen)}
+                    className="flex items-center gap-2 rounded-lg border border-black/10 px-3 py-1.5 text-sm transition-colors hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5"
+                >
+                    <svg className="h-4 w-4 text-black/50 dark:text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    <span className="text-black/50 dark:text-white/50">
+                        {selectedIds.length === 0 ? '카테고리 선택' : `추가 (${selectedIds.length}/${maxSelection})`}
+                    </span>
+                    <svg className={`h-4 w-4 text-black/50 transition-transform dark:text-white/50 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+            </div>
 
             {isOpen && (
                 <div className="absolute left-0 top-full z-50 mt-2 min-w-[200px] overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg dark:border-white/10 dark:bg-zinc-900">
-                    {/* 선택 안함 옵션 */}
-                    <button
-                        type="button"
-                        onClick={() => {
-                            onChange(null)
-                            setIsOpen(false)
-                        }}
-                        className={`flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors ${
-                            selectedId === null
-                                ? 'bg-black/5 dark:bg-white/5'
-                                : 'hover:bg-black/5 dark:hover:bg-white/5'
-                        }`}
-                    >
-                        <span className="text-black/50 dark:text-white/50">선택 안함</span>
-                    </button>
+                    {/* 전체 해제 옵션 */}
+                    {selectedIds.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onChange([])
+                            }}
+                            className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-black/50 transition-colors hover:bg-black/5 dark:text-white/50 dark:hover:bg-white/5"
+                        >
+                            전체 해제
+                        </button>
+                    )}
 
                     {/* 카테고리 목록 */}
                     {categories.length > 0 && (
-                        <div className="border-t border-black/10 dark:border-white/10">
-                            {categories.map(category => (
-                                <button
-                                    key={category.id}
-                                    type="button"
-                                    onClick={() => {
-                                        onChange(category.id)
-                                        setIsOpen(false)
-                                    }}
-                                    className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
-                                        selectedId === category.id
-                                            ? 'bg-black/5 dark:bg-white/5'
-                                            : 'hover:bg-black/5 dark:hover:bg-white/5'
-                                    }`}
-                                >
-                                    <span className="text-black dark:text-white">{category.name}</span>
-                                    {selectedId === category.id && (
-                                        <svg className="h-4 w-4 text-black dark:text-white" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                        </svg>
-                                    )}
-                                </button>
-                            ))}
+                        <div className={selectedIds.length > 0 ? "border-t border-black/10 dark:border-white/10" : ""}>
+                            {categories.map(category => {
+                                const isSelected = selectedIds.includes(category.id)
+                                const isDisabled = !isSelected && selectedIds.length >= maxSelection
+                                return (
+                                    <button
+                                        key={category.id}
+                                        type="button"
+                                        onClick={() => toggleCategory(category.id)}
+                                        disabled={isDisabled}
+                                        className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-colors ${
+                                            isSelected
+                                                ? 'bg-black/5 dark:bg-white/5'
+                                                : isDisabled
+                                                ? 'cursor-not-allowed opacity-50'
+                                                : 'hover:bg-black/5 dark:hover:bg-white/5'
+                                        }`}
+                                    >
+                                        <span className="text-black dark:text-white">{category.name}</span>
+                                        {isSelected && (
+                                            <svg className="h-4 w-4 text-black dark:text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                )
+                            })}
                         </div>
                     )}
 

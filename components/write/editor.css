@@ -1,11 +1,19 @@
-/* 
+/*
  * Tiptap 에디터 스타일
  * /write 페이지에서 사용하는 리치 텍스트 에디터 스타일
+ * post-content.css 와 동일한 스타일 적용
  */
 
 /* 기본 에디터 스타일 */
 .tiptap {
     outline: none;
+    font-size: 1.125rem;
+    line-height: 1.75;
+    color: #1a1a1a;
+}
+
+.dark .tiptap {
+    color: #e5e5e5;
 }
 
 /* Placeholder 스타일 */
@@ -25,32 +33,47 @@
 .tiptap h1 {
     font-size: 2rem;
     font-weight: 700;
-    margin: 1.5rem 0 1rem;
+    margin: 2rem 0 1rem;
+    color: #000;
+}
+
+.dark .tiptap h1 {
+    color: #fff;
 }
 
 .tiptap h2 {
     font-size: 1.5rem;
     font-weight: 700;
-    margin: 1.25rem 0 0.75rem;
+    margin: 1.75rem 0 0.75rem;
+    color: #000;
+}
+
+.dark .tiptap h2 {
+    color: #fff;
 }
 
 .tiptap h3 {
     font-size: 1.25rem;
     font-weight: 600;
-    margin: 1rem 0 0.5rem;
+    margin: 1.5rem 0 0.5rem;
+    color: #000;
+}
+
+.dark .tiptap h3 {
+    color: #fff;
 }
 
 /* 본문 스타일 */
 .tiptap p {
-    margin: 0.75rem 0;
-    line-height: 1.75;
+    margin: 1rem 0;
+    line-height: 1.8;
 }
 
 /* 리스트 스타일 */
 .tiptap ul,
 .tiptap ol {
     padding-left: 1.5rem;
-    margin: 0.75rem 0;
+    margin: 1rem 0;
 }
 
 .tiptap ul {
@@ -62,30 +85,39 @@
 }
 
 .tiptap li {
-    margin: 0.25rem 0;
+    margin: 0.5rem 0;
+    line-height: 1.75;
 }
 
 /* 인용구 스타일 */
 .tiptap blockquote {
-    border-left: 3px solid rgba(0, 0, 0, 0.2);
-    padding-left: 1rem;
-    margin: 1rem 0;
-    color: rgba(0, 0, 0, 0.6);
+    border-left: 4px solid rgba(0, 0, 0, 0.2);
+    padding-left: 1.25rem;
+    margin: 1.5rem 0;
+    color: rgba(0, 0, 0, 0.7);
+    font-style: italic;
 }
 
 .dark .tiptap blockquote {
-    border-left-color: rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.6);
+    border-left-color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.7);
 }
 
-/* 코드 블록 스타일 */
+/* 코드 블록 스타일 - 라이트 모드 */
 .tiptap pre {
-    background: #1a1a1a;
+    background: #f6f8fa;
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 0.5rem;
     padding: 1rem;
-    margin: 1rem 0;
+    margin: 1.5rem 0;
     overflow-x: auto;
     position: relative;
+}
+
+/* 코드 블록 스타일 - 다크 모드 */
+.dark .tiptap pre {
+    background: #1a1a1a;
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
 .tiptap pre code,
@@ -108,8 +140,8 @@
 .tiptap code:not(pre code) {
     font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 0.875rem;
-    background: rgba(0, 0, 0, 0.08);
-    padding: 0.125rem 0.375rem;
+    background: rgba(0, 0, 0, 0.06);
+    padding: 0.2rem 0.4rem;
     border-radius: 0.25rem;
     color: #e83e8c;
 }
@@ -117,6 +149,27 @@
 .dark .tiptap code:not(pre code) {
     background: rgba(255, 255, 255, 0.1);
     color: #f472b6;
+}
+
+/* 강조 */
+.tiptap strong {
+    font-weight: 600;
+    color: #000;
+}
+
+.dark .tiptap strong {
+    color: #fff;
+}
+
+/* 밑줄 */
+.tiptap u {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+/* 취소선 */
+.tiptap s {
+    text-decoration: line-through;
 }
 
 /* 코드블록 래퍼 */

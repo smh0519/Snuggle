@@ -1,16 +1,19 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getPost, PostWithDetails } from '@/lib/api/posts'
+import hljs from 'highlight.js'
 
-// highlight.js 테마 (코드블록용)
-import 'highlight.js/styles/github-dark.css'
+// 게시글 컨텐츠 스타일
+import '@/styles/post-content.css'
+import '@/styles/highlight-theme.css'
 
 export default function PostPage() {
     const params = useParams()
     const router = useRouter()
     const postId = params.id as string
+    const contentRef = useRef<HTMLElement>(null)
 
     const [postData, setPostData] = useState<PostWithDetails | null>(null)
     const [loading, setLoading] = useState(true)
@@ -37,6 +40,15 @@ export default function PostPage() {
 
         fetchData()
     }, [postId])
+
+    // 코드블록 하이라이팅 적용
+    useEffect(() => {
+        if (postData && contentRef.current) {
+            contentRef.current.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block as HTMLElement)
+            })
+        }
+    }, [postData])
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString)
@@ -141,7 +153,8 @@ export default function PostPage() {
 
                 {/* 본문 */}
                 <article
-                    className="prose prose-lg mt-10 max-w-none dark:prose-invert prose-headings:font-bold prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-p:leading-relaxed prose-a:text-blue-500 prose-pre:bg-[#1a1a1a] prose-pre:text-sm prose-img:rounded-lg"
+                    ref={contentRef}
+                    className="post-content mt-10 max-w-none"
                     dangerouslySetInnerHTML={{ __html: postData.content }}
                 />
 

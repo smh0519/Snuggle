@@ -111,7 +111,7 @@ export async function createPost(data: {
   blog_id: string
   title: string
   content: string
-  category_id?: string | null
+  category_ids?: string[]
   published?: boolean
 }): Promise<Post> {
   const token = await getAuthToken()
@@ -143,7 +143,7 @@ export async function updatePost(
   data: {
     title?: string
     content?: string
-    category_id?: string | null
+    category_ids?: string[]
     published?: boolean
   }
 ): Promise<Post> {

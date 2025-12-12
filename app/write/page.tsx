@@ -17,8 +17,8 @@ import { uploadTempImage, deleteTempImage } from '@/lib/api/upload'
 import { createPost } from '@/lib/api/posts'
 import { getCategories, createCategory } from '@/lib/api/categories'
 
-// highlight.js 테마 import
-import 'highlight.js/styles/github-dark.css'
+// highlight.js 커스텀 테마 (라이트/다크 모드 지원)
+import '@/styles/highlight-theme.css'
 
 // lowlight 인스턴스 생성 (모든 언어 포함)
 const lowlight = createLowlight(all)
@@ -66,7 +66,7 @@ interface Category {
 interface DraftData {
     title: string
     content: string
-    categoryId: string | null
+    categoryIds: string[]
     uploadedImages: string[]
     lastSaved: number
 }
@@ -76,7 +76,7 @@ export default function WritePage() {
     const [user, setUser] = useState<User | null>(null)
     const [blog, setBlog] = useState<Blog | null>(null)
     const [title, setTitle] = useState('')
-    const [categoryId, setCategoryId] = useState<string | null>(null)
+    const [categoryIds, setCategoryIds] = useState<string[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -96,7 +96,7 @@ export default function WritePage() {
                 const draft: DraftData = JSON.parse(saved)
                 setTitle(draft.title || '')
                 setInitialContent(draft.content || '')
-                setCategoryId(draft.categoryId || null)
+                setCategoryIds(draft.categoryIds || [])
                 uploadedImagesRef.current = new Set(draft.uploadedImages || [])
             }
         } catch (error) {
@@ -260,6 +260,25 @@ export default function WritePage() {
         }
     }, [editor, initialContent])
 
+    // localStorage에 저장
+    const saveDraft = useCallback((content: string) => {
+        if (typeof window === 'undefined') return
+
+        const draft: DraftData = {
+            title,
+            content,
+            categoryIds,
+            uploadedImages: Array.from(uploadedImagesRef.current),
+            lastSaved: Date.now(),
+        }
+
+        try {
+            localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft))
+        } catch (error) {
+            console.error('Failed to save draft:', error)
+        }
+    }, [title, categoryIds])
+
     // 디바운스된 저장 함수
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
     const saveDraftDebounced = useCallback((content: string) => {
@@ -270,33 +289,14 @@ export default function WritePage() {
         saveTimeoutRef.current = setTimeout(() => {
             saveDraft(content)
         }, 500)
-    }, [])
-
-    // localStorage에 저장
-    const saveDraft = useCallback((content: string) => {
-        if (typeof window === 'undefined') return
-
-        const draft: DraftData = {
-            title,
-            content,
-            categoryId,
-            uploadedImages: Array.from(uploadedImagesRef.current),
-            lastSaved: Date.now(),
-        }
-
-        try {
-            localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft))
-        } catch (error) {
-            console.error('Failed to save draft:', error)
-        }
-    }, [title, categoryId])
+    }, [saveDraft])
 
     // 제목/카테고리 변경 시 저장
     useEffect(() => {
         if (editor && isInitializedRef.current) {
             saveDraftDebounced(editor.getHTML())
         }
-    }, [title, categoryId, editor, saveDraftDebounced])
+    }, [title, categoryIds, editor, saveDraftDebounced])
 
     // 초안 삭제
     const clearDraft = useCallback(() => {
@@ -390,7 +390,7 @@ export default function WritePage() {
                 blog_id: blog.id,
                 title: title.trim(),
                 content: content,
-                category_id: categoryId,
+                category_ids: categoryIds,
                 published: true,
             })
 
@@ -434,9 +434,10 @@ export default function WritePage() {
                 <div className="mt-4">
                     <CategorySelector
                         categories={categories}
-                        selectedId={categoryId}
-                        onChange={setCategoryId}
+                        selectedIds={categoryIds}
+                        onChange={setCategoryIds}
                         onAddCategory={handleAddCategory}
+                        maxSelection={5}
                     />
                 </div>
 

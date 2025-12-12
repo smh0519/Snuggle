@@ -65,7 +65,7 @@ export default function CodeBlockComponent({
                         e.stopPropagation()
                         setShowDropdown(!showDropdown)
                     }}
-                    className="flex items-center gap-1.5 rounded-full border border-zinc-700/50 bg-zinc-800/90 px-3 py-1.5 text-[11px] font-medium text-zinc-400 backdrop-blur-sm transition-all hover:border-zinc-600 hover:bg-zinc-700/90 hover:text-zinc-300"
+                    className="flex items-center gap-1.5 rounded-full border border-black/10 bg-white/90 px-3 py-1.5 text-[11px] font-medium text-black/60 backdrop-blur-sm transition-all hover:border-black/20 hover:bg-white hover:text-black/80 dark:border-zinc-700/50 dark:bg-zinc-800/90 dark:text-zinc-400 dark:hover:border-zinc-600 dark:hover:bg-zinc-700/90 dark:hover:text-zinc-300"
                 >
                     {currentLabel}
                     <svg className={`h-3 w-3 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@ export default function CodeBlockComponent({
                     </svg>
                 </button>
                 {showDropdown && (
-                    <div className="lang-menu-enter absolute bottom-full right-0 mb-2 max-h-72 w-44 overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-800/95 shadow-2xl backdrop-blur-sm">
+                    <div className="lang-menu-enter absolute bottom-full right-0 mb-2 max-h-72 w-44 overflow-hidden rounded-xl border border-black/10 bg-white/95 shadow-2xl backdrop-blur-sm dark:border-zinc-700/50 dark:bg-zinc-800/95">
                         <div className="max-h-72 overflow-y-auto py-1">
                             {LANGUAGES.map(lang => (
                                 <button
@@ -85,8 +85,8 @@ export default function CodeBlockComponent({
                                     }}
                                     className={`flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors ${
                                         currentLanguage === lang.value
-                                            ? 'bg-zinc-700/50 text-white'
-                                            : 'text-zinc-400 hover:bg-zinc-700/50 hover:text-zinc-200'
+                                            ? 'bg-black/5 text-black dark:bg-zinc-700/50 dark:text-white'
+                                            : 'text-black/60 hover:bg-black/5 hover:text-black dark:text-zinc-400 dark:hover:bg-zinc-700/50 dark:hover:text-zinc-200'
                                     }`}
                                 >
                                     {currentLanguage === lang.value && (

@@ -54,12 +54,6 @@ export default function BlogProfileSidebar({
             {blog.name}
           </h1>
 
-          {profile?.nickname && (
-            <p className="mt-1 text-sm text-black/50 dark:text-white/50">
-              by {profile.nickname}
-            </p>
-          )}
-
           {blog.description && (
             <p className="mt-3 text-center text-sm text-black/70 dark:text-white/70">
               {blog.description}

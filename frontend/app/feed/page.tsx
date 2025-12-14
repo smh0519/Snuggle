@@ -32,7 +32,7 @@ export default function FeedPage() {
             try {
                 // 병렬로 데이터 페칭
                 const [feedPosts, subCounts] = await Promise.all([
-                    getFeedPosts(user.id, 14),
+                    getFeedPosts(14),
                     getSubscriptionCounts(user.id)
                 ])
 

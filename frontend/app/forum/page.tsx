@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { getForums, ForumPost } from '@/lib/api/forum'
 import ForumList from '@/components/forum/ForumList'
 import ForumWrite from '@/components/forum/ForumWrite'
 import ForumPagination from '@/components/forum/ForumPagination'
 import { useUserStore } from '@/lib/store/useUserStore'
 
-export default function ForumPage() {
+function ForumContent() {
     const searchParams = useSearchParams()
     const page = parseInt(searchParams.get('page') || '1')
     const limit = 12
@@ -147,5 +147,17 @@ export default function ForumPage() {
                 </div>
             </main>
         </div>
+    )
+}
+
+export default function ForumPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex min-h-screen items-center justify-center bg-white dark:bg-black">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-black/20 border-t-black dark:border-white/20 dark:border-t-white" />
+            </div>
+        }>
+            <ForumContent />
+        </Suspense>
     )
 }

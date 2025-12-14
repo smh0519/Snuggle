@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useUserStore } from '@/lib/store/useUserStore'
 import { syncProfile } from '@/lib/api/profile'
 import ThemeProvider from './ThemeProvider'
+import { ModalProvider } from './Modal'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const { setUser } = useUserStore()
@@ -35,7 +36,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeProvider>
-      {children}
+      <ModalProvider>
+        {children}
+      </ModalProvider>
     </ThemeProvider>
   )
 }

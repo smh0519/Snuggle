@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { uploadTempImage } from '@/lib/api/upload'
+import { useModal } from '@/components/common/Modal'
 
 interface PublishDrawerProps {
     isOpen: boolean
@@ -19,6 +20,7 @@ interface PublishDrawerProps {
 }
 
 export default function PublishDrawer({ isOpen, onClose, onConfirm, initialValues }: PublishDrawerProps) {
+    const { showAlert } = useModal()
     const [isPrivate, setIsPrivate] = useState(initialValues?.isPrivate ?? false)
     const [allowComments, setAllowComments] = useState(initialValues?.allowComments ?? true)
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(initialValues?.thumbnailUrl ?? null)
@@ -37,7 +39,7 @@ export default function PublishDrawer({ isOpen, onClose, onConfirm, initialValue
             setThumbnailUrl(url)
         } catch (error) {
             console.error('Thumbnail upload failed:', error)
-            alert('이미지 업로드에 실패했습니다.')
+            showAlert('이미지 업로드에 실패했습니다.')
         } finally {
             setUploading(false)
         }

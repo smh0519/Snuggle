@@ -6,6 +6,7 @@ import { uploadTempImage } from '@/lib/api/upload'
 import { useUserStore } from '@/lib/store/useUserStore'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useModal } from '@/components/common/Modal'
 
 interface ForumWriteProps {
     onPostSuccess?: () => void
@@ -14,6 +15,7 @@ interface ForumWriteProps {
 export default function ForumWrite({ onPostSuccess }: ForumWriteProps) {
     const router = useRouter()
     const { user } = useUserStore()
+    const { showAlert } = useModal()
     const [title, setTitle] = useState('')
     const [content, setContent] = useState('')
     const [category, setCategory] = useState('블로그 소개')
@@ -34,7 +36,7 @@ export default function ForumWrite({ onPostSuccess }: ForumWriteProps) {
             }
         } catch (error) {
             console.error('Image upload failed', error)
-            alert('이미지 업로드 실패')
+            showAlert('이미지 업로드 실패')
         }
     }
 
@@ -51,7 +53,7 @@ export default function ForumWrite({ onPostSuccess }: ForumWriteProps) {
                 .single()
 
             if (!blog) {
-                alert('블로그를 먼저 개설해주세요.')
+                await showAlert('블로그를 먼저 개설해주세요.')
                 return
             }
 
@@ -62,12 +64,10 @@ export default function ForumWrite({ onPostSuccess }: ForumWriteProps) {
                 category
             })
 
-            alert('등록되었습니다.')
-            // Reset form
+            await showAlert('등록되었습니다.')
             setTitle('')
             setContent('')
 
-            // Reload list via callback
             if (onPostSuccess) {
                 onPostSuccess()
             } else {
@@ -75,19 +75,17 @@ export default function ForumWrite({ onPostSuccess }: ForumWriteProps) {
             }
         } catch (error) {
             console.error('Create forum failed', error)
-            alert('등록 실패')
+            showAlert('등록 실패')
         } finally {
             setSubmitting(false)
         }
     }
 
-    // Check if fields are valid
     const isValid = title.trim().length > 0 && content.trim().length > 0
 
-    // Handle button click securely
-    const onButtonClick = () => {
+    const onButtonClick = async () => {
         if (!isValid) {
-            alert('빈칸이 있습니다.')
+            await showAlert('빈칸이 있습니다.')
             return
         }
         handleSubmit()

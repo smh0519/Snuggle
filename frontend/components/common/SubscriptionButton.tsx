@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { checkSubscription, toggleSubscription } from '@/lib/api/subscribe'
 import { useUserStore } from '@/lib/store/useUserStore'
+import { useModal } from './Modal'
 
 interface SubscriptionButtonProps {
     targetId: string
@@ -22,6 +23,7 @@ export default function SubscriptionButton({
     variant = 'system'
 }: SubscriptionButtonProps) {
     const { user } = useUserStore()
+    const { showAlert } = useModal()
     const [subscribed, setSubscribed] = useState(false)
     const [loading, setLoading] = useState(false)
 
@@ -48,8 +50,7 @@ export default function SubscriptionButton({
 
     const handleToggle = async () => {
         if (!user) {
-            alert('로그인이 필요합니다.')
-            // Or open login modal if feasible
+            await showAlert('로그인이 필요합니다.')
             return
         }
 
@@ -60,7 +61,7 @@ export default function SubscriptionButton({
             if (onToggle) onToggle(result.subscribed)
         } catch (err) {
             console.error(err)
-            alert('오류가 발생했습니다.')
+            await showAlert('오류가 발생했습니다.')
         } finally {
             setLoading(false)
         }

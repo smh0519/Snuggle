@@ -8,6 +8,7 @@ import { ko } from 'date-fns/locale'
 import { useUserStore } from '@/lib/store/useUserStore'
 import { createClient } from '@/lib/supabase/client'
 import { getBlogImageUrl } from '@/lib/utils/image'
+import { useModal } from '@/components/common/Modal'
 
 interface ForumCommentListProps {
     forumId: string
@@ -15,6 +16,7 @@ interface ForumCommentListProps {
 
 export default function ForumCommentList({ forumId }: ForumCommentListProps) {
     const { user } = useUserStore()
+    const { showAlert } = useModal()
     const [comments, setComments] = useState<ForumComment[]>([])
     const [content, setContent] = useState('')
     const [submitting, setSubmitting] = useState(false)
@@ -56,11 +58,11 @@ export default function ForumCommentList({ forumId }: ForumCommentListProps) {
                 blog_id: myBlogId,
                 content: content.trim(),
             })
-            setComments(prev => [...prev, newComment]) // Optimistic-ish update
+            setComments(prev => [...prev, newComment])
             setContent('')
         } catch (error) {
             console.error('Failed to post comment', error)
-            alert('댓글 작성에 실패했습니다.')
+            showAlert('댓글 작성에 실패했습니다.')
         } finally {
             setSubmitting(false)
         }

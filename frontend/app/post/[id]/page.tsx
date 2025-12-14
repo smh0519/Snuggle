@@ -10,6 +10,7 @@ import AccessDenied from '@/components/common/AccessDenied'
 import PostActionMenu from '@/components/post/PostActionMenu'
 import { useUserStore } from '@/lib/store/useUserStore'
 import { deletePost, updatePost } from '@/lib/api/posts'
+import { useModal } from '@/components/common/Modal'
 import SubscriptionCard from '@/components/post/SubscriptionCard'
 
 // 게시글 컨텐츠 스타일
@@ -25,7 +26,8 @@ export default function PostPage() {
     const [postData, setPostData] = useState<PostWithDetails | null>(null)
     const [loading, setLoading] = useState(true)
     const [notFound, setNotFound] = useState(false)
-    const { user } = useUserStore() // 유저 스토어 사용 (최상위 호출)
+    const { user } = useUserStore()
+    const { showAlert } = useModal()
 
     useEffect(() => {
         const fetchData = async () => {
@@ -97,11 +99,11 @@ export default function PostPage() {
     const handleDelete = async () => {
         try {
             await deletePost(postId)
-            alert('게시글이 삭제되었습니다.')
+            await showAlert('게시글이 삭제되었습니다.')
             router.push(`/blog/${postData?.blog.id}`)
         } catch (error) {
             console.error('Delete failed:', error)
-            alert('삭제에 실패했습니다.')
+            await showAlert('삭제에 실패했습니다.')
         }
     }
 
@@ -113,12 +115,11 @@ export default function PostPage() {
             await updatePost(postId, {
                 is_private: newPrivateState
             })
-            // 상태 업데이트 (UI 반영)
             setPostData({ ...postData, is_private: newPrivateState } as any)
-            alert(newPrivateState ? '비공개로 전환되었습니다.' : '공개로 전환되었습니다.')
+            await showAlert(newPrivateState ? '비공개로 전환되었습니다.' : '공개로 전환되었습니다.')
         } catch (error) {
             console.error('Toggle visibility failed:', error)
-            alert('상태 변경에 실패했습니다.')
+            await showAlert('상태 변경에 실패했습니다.')
         }
     }
 

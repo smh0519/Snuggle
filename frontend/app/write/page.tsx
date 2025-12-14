@@ -16,6 +16,7 @@ import CodeBlockComponent from '@/components/write/CodeBlockComponent'
 import { uploadTempImage, deleteTempImage } from '@/lib/api/upload'
 import { createPost, getPost, updatePost } from '@/lib/api/posts'
 import { getCategories, createCategory } from '@/lib/api/categories'
+import { useModal } from '@/components/common/Modal'
 
 // highlight.js 커스텀 테마 (라이트/다크 모드 지원)
 import '@/styles/highlight-theme.css'
@@ -78,6 +79,7 @@ function WriteContent() {
     const searchParams = useSearchParams()
     const editPostId = searchParams.get('id')
     const isEditMode = !!editPostId
+    const { showAlert, showConfirm } = useModal()
 
     const [user, setUser] = useState<User | null>(null)
     const [blog, setBlog] = useState<Blog | null>(null)
@@ -134,7 +136,7 @@ function WriteContent() {
                     if (postData) {
                         // 본인 글인지 확인
                         if (postData.user_id !== user.id) {
-                            alert('수정 권한이 없습니다.')
+                            await showAlert('수정 권한이 없습니다.')
                             router.back()
                             return
                         }
@@ -148,7 +150,7 @@ function WriteContent() {
                     }
                 } catch (err) {
                     console.error('Failed to load post for edit:', err)
-                    alert('게시글을 불러오는데 실패했습니다.')
+                    await showAlert('게시글을 불러오는데 실패했습니다.')
                     router.back()
                     return
                 }
@@ -158,7 +160,8 @@ function WriteContent() {
                     const saved = localStorage.getItem(DRAFT_STORAGE_KEY)
                     if (saved) {
                         const draft: DraftData = JSON.parse(saved)
-                        if (confirm('임시 저장된 글이 있습니다. 불러오시겠습니까?')) {
+                        const loadDraft = await showConfirm('임시 저장된 글이 있습니다. 불러오시겠습니까?')
+                        if (loadDraft) {
                             setTitle(draft.title || '')
                             setInitialContent(draft.content || '')
                             setCategoryIds(draft.categoryIds || [])
@@ -394,20 +397,20 @@ function WriteContent() {
             return newCategory
         } catch (err) {
             const message = err instanceof Error ? err.message : '카테고리 추가 실패'
-            alert(message)
+            showAlert(message)
             return null
         }
     }
 
     // 임시저장 (작성 모드 전용)
-    const handleSave = () => {
+    const handleSave = async () => {
         if (isEditMode) {
-            alert('수정 모드에서는 임시저장을 지원하지 않습니다.')
+            await showAlert('수정 모드에서는 임시저장을 지원하지 않습니다.')
             return
         }
         if (editor) {
             saveDraft(editor.getHTML())
-            alert('임시저장되었습니다.')
+            await showAlert('임시저장되었습니다.')
         }
     }
 
@@ -415,15 +418,15 @@ function WriteContent() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
 
     // 발행하기 버튼 클릭 -> 서랍 열기
-    const handlePublishClick = () => {
+    const handlePublishClick = async () => {
         if (!title.trim()) {
-            alert('제목을 입력해주세요.')
+            await showAlert('제목을 입력해주세요.')
             return
         }
 
         const content = editor?.getHTML()
         if (!content || content === '<p></p>' || !content.trim()) {
-            alert('내용을 입력해주세요.')
+            await showAlert('내용을 입력해주세요.')
             return
         }
 
@@ -451,9 +454,9 @@ function WriteContent() {
                     category_ids: categoryIds,
                     is_private: options.isPrivate,
                     is_allow_comment: options.allowComments,
-                    thumbnail_url: options.thumbnailUrl, // 썸네일 수동 지정
+                    thumbnail_url: options.thumbnailUrl,
                 })
-                alert('게시글이 수정되었습니다.')
+                await showAlert('게시글이 수정되었습니다.')
             } else {
                 // 생성
                 await createPost({
@@ -480,7 +483,7 @@ function WriteContent() {
 
         } catch (error) {
             console.error(isEditMode ? '수정 실패:' : '발행 실패:', error)
-            alert((isEditMode ? '수정' : '발행') + '에 실패했습니다. 다시 시도해주세요.')
+            await showAlert((isEditMode ? '수정' : '발행') + '에 실패했습니다. 다시 시도해주세요.')
         } finally {
             setSaving(false)
         }

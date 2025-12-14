@@ -93,3 +93,85 @@ export async function getSubscribedUserIds(userId: string): Promise<string[]> {
 
   return data.map((row) => row.subed_id)
 }
+
+export interface SubscribedBlog {
+  id: string
+  name: string
+  description: string | null
+  thumbnail_url: string | null
+  profile_image_url: string | null
+}
+
+// 내가 구독한 블로그 목록 가져오기
+export async function getSubscribedBlogs(userId: string, limit: number = 10): Promise<SubscribedBlog[]> {
+  const supabase = createClient()
+
+  // 1. 구독 목록 가져오기
+  const { data: subscriptions, error: subError } = await supabase
+    .from('subscribe')
+    .select('subed_id')
+    .eq('sub_id', userId)
+    .limit(limit)
+
+  if (subError) {
+    console.error('Failed to fetch subscriptions:', subError)
+    return []
+  }
+
+  if (!subscriptions?.length) {
+    return []
+  }
+
+  const targetIds = subscriptions.map(s => s.subed_id)
+
+  // 2. subed_id가 user_id인 경우 - blogs와 profiles 함께 조회
+  const { data: blogsByUserId, error: userIdError } = await supabase
+    .from('blogs')
+    .select('id, name, description, thumbnail_url, user_id')
+    .in('user_id', targetIds)
+
+  if (!userIdError && blogsByUserId && blogsByUserId.length > 0) {
+    // profiles에서 프로필 이미지 가져오기
+    const userIds = blogsByUserId.map(b => b.user_id)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, profile_image_url')
+      .in('id', userIds)
+
+    const profileMap = new Map(profiles?.map(p => [p.id, p.profile_image_url]) || [])
+
+    return blogsByUserId.map(b => ({
+      id: b.id,
+      name: b.name,
+      description: b.description,
+      thumbnail_url: b.thumbnail_url,
+      profile_image_url: profileMap.get(b.user_id) || null,
+    }))
+  }
+
+  // 3. subed_id가 blog_id인 경우 시도
+  const { data: blogsByBlogId } = await supabase
+    .from('blogs')
+    .select('id, name, description, thumbnail_url, user_id')
+    .in('id', targetIds)
+
+  if (blogsByBlogId && blogsByBlogId.length > 0) {
+    const userIds = blogsByBlogId.map(b => b.user_id)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, profile_image_url')
+      .in('id', userIds)
+
+    const profileMap = new Map(profiles?.map(p => [p.id, p.profile_image_url]) || [])
+
+    return blogsByBlogId.map(b => ({
+      id: b.id,
+      name: b.name,
+      description: b.description,
+      thumbnail_url: b.thumbnail_url,
+      profile_image_url: profileMap.get(b.user_id) || null,
+    }))
+  }
+
+  return []
+}

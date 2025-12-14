@@ -1,9 +1,5 @@
 'use client'
 
-import React from 'react'
-import ProfileImage from '@/components/common/ProfileImage'
-import { formatDistanceToNow } from 'date-fns'
-import { ko } from 'date-fns/locale'
 import { getBlogImageUrl } from '@/lib/utils/image'
 
 interface FeedItemProps {
@@ -19,80 +15,74 @@ interface FeedItemProps {
             thumbnail_url: string | null
             profile_image_url?: string | null
         } | null
-        // 추가적으로 필요한 정보들 (댓글 수, 좋아요 수 등은 API가 제공한다면)
     }
 }
 
-export default function FeedItem({ post }: FeedItemProps) {
-    // HTML 태그 제거 및 길이 제한 (본문 미리보기용)
-    const stripHtml = (html: string) => {
-        const tmp = document.createElement('DIV')
-        tmp.innerHTML = html
-        return tmp.textContent || tmp.innerText || ''
+function getFirstParagraph(html: string): string {
+    const withoutCode = html.replace(/<pre[\s\S]*?<\/pre>/gi, '')
+    const withoutImages = withoutCode.replace(/<img[^>]*>/gi, '')
+    const pMatch = withoutImages.match(/<p[^>]*>([\s\S]*?)<\/p>/i)
+    if (pMatch) {
+        const text = pMatch[1].replace(/<[^>]*>/g, '').trim()
+        if (text) return text
     }
+    const plainText = withoutImages.replace(/<[^>]*>/g, '').trim()
+    const firstLine = plainText.split('\n')[0]?.trim()
+    return firstLine || ''
+}
 
-    const summary = React.useMemo(() => {
-        if (typeof window === 'undefined') return '' // SSR 방지
-        const text = stripHtml(post.content)
-        return text.length > 120 ? text.slice(0, 120) + '...' : text
-    }, [post.content])
+export default function FeedItem({ post }: FeedItemProps) {
+    const blogName = post.blog?.name || '알 수 없음'
+    const blogImage = getBlogImageUrl(post.blog?.thumbnail_url, post.blog?.profile_image_url)
+    const preview = post.content ? getFirstParagraph(post.content).slice(0, 150) : ''
+    const date = new Date(post.created_at).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    })
 
     return (
-        <div className="group flex gap-6 border-b border-black/10 py-8 last:border-0 dark:border-white/10">
-            {/* 왼쪽: 프로필 및 블로그 정보 */}
-            <div className="w-24 flex-shrink-0">
-                <a href={`/blog/${post.blog_id}`} className="flex flex-col items-center text-center">
-                    <ProfileImage
-                        src={getBlogImageUrl(post.blog?.thumbnail_url, post.blog?.profile_image_url)}
-                        alt={post.blog?.name || '블로그'}
-                        fallback={post.blog?.name || '블로그'}
-                        size="md"
-                        className="mb-2"
-                    />
-                    <span className="line-clamp-1 w-full text-sm font-medium text-black dark:text-white">
-                        {post.blog?.name}
-                    </span>
-                    <span className="line-clamp-1 w-full text-xs text-black/50 dark:text-white/50">
-                        by {post.blog?.name}
-                    </span>
-                </a>
-            </div>
+        <a href={`/post/${post.id}`} className="block">
+            <article className="border-b border-black/10 py-6 transition-colors hover:bg-black/[0.02] dark:border-white/10 dark:hover:bg-white/[0.02]">
+                <div className="flex gap-4">
+                    {/* 썸네일 */}
+                    {post.thumbnail_url && (
+                        <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-black/5 dark:bg-white/5">
+                            <img
+                                src={post.thumbnail_url}
+                                alt={post.title}
+                                className="h-full w-full object-cover"
+                            />
+                        </div>
+                    )}
 
-            {/* 가운데: 게시글 내용 */}
-            <div className="flex-1 min-w-0">
-                <a href={`/post/${post.id}`} className="block group-hover:opacity-80 transition-opacity">
-                    <h2 className="mb-2 text-xl font-bold text-black dark:text-white">
-                        {post.title}
-                    </h2>
-                    <p className="mb-4 text-sm text-black/60 line-clamp-2 dark:text-white/60">
-                        {summary}
-                    </p>
-                </a>
+                    {/* 콘텐츠 */}
+                    <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-semibold text-black dark:text-white line-clamp-1">
+                            {post.title}
+                        </h3>
+                        {preview && (
+                            <p className="mt-1 text-sm text-black/60 dark:text-white/60 line-clamp-2">
+                                {preview}
+                            </p>
+                        )}
 
-                <div className="flex items-center gap-2 text-xs text-black/40 dark:text-white/40">
-                    <span>
-                        {formatDistanceToNow(new Date(post.created_at), {
-                            addSuffix: true,
-                            locale: ko,
-                        })}
-                    </span>
-                    <span>·</span>
-                    <span>공감 0</span> {/* API에서 제공하지 않아 하드코딩 */}
-                </div>
-            </div>
-
-            {/* 오른쪽: 썸네일 (있을 경우) */}
-            {post.thumbnail_url && (
-                <a href={`/post/${post.id}`} className="block flex-shrink-0">
-                    <div className="h-24 w-32 overflow-hidden rounded-lg bg-black/5 dark:bg-white/5">
-                        <img
-                            src={post.thumbnail_url}
-                            alt={post.title}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
+                        {/* 블로그 정보 */}
+                        <div className="mt-3 flex items-center gap-2">
+                            {blogImage && (
+                                <img
+                                    src={blogImage}
+                                    alt={blogName}
+                                    className="h-5 w-5 rounded-full object-cover"
+                                />
+                            )}
+                            <span className="text-xs text-black/50 dark:text-white/50">
+                                {blogName} · {date}
+                            </span>
+                        </div>
                     </div>
-                </a>
-            )}
-        </div>
+                </div>
+            </article>
+        </a>
     )
 }

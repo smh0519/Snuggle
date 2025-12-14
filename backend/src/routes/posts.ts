@@ -1,8 +1,15 @@
 import { Router, Request, Response } from 'express'
 import { AuthenticatedRequest, authMiddleware } from '../middleware/auth.js'
 import { createAuthenticatedClient, supabase } from '../services/supabase.service.js'
+import type { Post, Blog, Category, Profile } from '../types/database.types.js'
+import { logger } from '../utils/logger.js'
 
 const router = Router()
+
+// Types for Supabase responses
+interface SubscribeRow {
+  subed_id: string
+}
 
 // HTML content에서 첫 번째 이미지 URL 추출
 function extractFirstImageUrl(content: string): string | null {
@@ -24,60 +31,68 @@ router.get('/feed', authMiddleware, async (req: AuthenticatedRequest, res: Respo
 
     if (subError) throw subError
 
-    const subscribedUserIds = subscribed.map((row: any) => row.subed_id)
+    const subscribedUserIds = (subscribed as SubscribeRow[]).map((row) => row.subed_id)
 
     if (subscribedUserIds.length === 0) {
       res.json([])
       return
     }
 
-    // 2. 해당 유저들의 글 가져오기
+    // 2. 해당 유저들의 글 가져오기 (relation join으로 N+1 해결)
     const { data: posts, error: postError } = await supabase
       .from('posts')
       .select(`
-            id, title, content, thumbnail_url, created_at, blog_id, user_id,
-            blog:blogs ( name, thumbnail_url, user_id )
-        `)
+        id, title, content, thumbnail_url, created_at, blog_id, user_id,
+        blog:blogs ( name, thumbnail_url, user_id )
+      `)
       .in('user_id', subscribedUserIds)
       .eq('published', true)
+      .eq('is_private', false)
       .order('created_at', { ascending: false })
       .limit(limit)
 
     if (postError) throw postError
 
     // Transform response to match frontend expectation
-    const result = posts.map((post: any) => ({
-      id: post.id,
-      title: post.title,
-      content: post.content,
-      thumbnail_url: post.thumbnail_url,
-      created_at: post.created_at,
-      blog_id: post.blog_id,
-      blog: post.blog ? {
-        name: post.blog.name || '',
-        thumbnail_url: post.blog.thumbnail_url || null,
-      } : null,
-    }))
+    // Supabase returns relation as array, get first item
+    const result = (posts || []).map((post: Record<string, unknown>) => {
+      const blogData = post.blog as Record<string, unknown> | null
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        thumbnail_url: post.thumbnail_url,
+        created_at: post.created_at,
+        blog_id: post.blog_id,
+        blog: blogData ? {
+          name: (blogData.name as string) || '',
+          thumbnail_url: (blogData.thumbnail_url as string | null) || null,
+        } : null,
+      }
+    })
 
     res.json(result)
   } catch (error) {
-    console.error('Feed error:', error)
+    logger.error('Feed error:', error)
     res.status(500).json({ error: 'Failed to fetch feed' })
   }
 })
 
-// 전체 게시글 목록 (공개글만, 인증 불필요)
+// 전체 게시글 목록 (공개글만, 인증 불필요) - N+1 해결
 router.get('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const limit = parseInt(req.query.limit as string) || 20
     const offset = parseInt(req.query.offset as string) || 0
 
+    // relation join으로 N+1 문제 해결
     const { data: posts, error } = await supabase
       .from('posts')
-      .select('id, title, content, thumbnail_url, created_at, blog_id')
-      // .eq('published', true) // 목록에서는 모든 글 노출 (요청사항 반영)
+      .select(`
+        id, title, content, thumbnail_url, created_at, blog_id,
+        blog:blogs ( name, thumbnail_url )
+      `)
+      .eq('is_private', false)
       .order('created_at', { ascending: false })
-
       .range(offset, offset + limit - 1)
 
     if (error) {
@@ -85,25 +100,23 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
-    // 각 포스트의 블로그 정보 가져오기
-    const postsWithDetails = await Promise.all(
-      (posts || []).map(async (post) => {
-        const { data: blog } = await supabase
-          .from('blogs')
-          .select('name, thumbnail_url')
-          .eq('id', post.blog_id)
-          .single()
-
-        return {
-          ...post,
-          blog: blog ? { name: blog.name, thumbnail_url: blog.thumbnail_url } : null,
-        }
-      })
-    )
+    // Transform response
+    const postsWithDetails = (posts || []).map((post: Record<string, unknown>) => {
+      const blogData = post.blog as Record<string, unknown> | null
+      return {
+        id: post.id,
+        title: post.title,
+        content: post.content,
+        thumbnail_url: post.thumbnail_url,
+        created_at: post.created_at,
+        blog_id: post.blog_id,
+        blog: blogData ? { name: blogData.name, thumbnail_url: blogData.thumbnail_url } : null,
+      }
+    })
 
     res.json(postsWithDetails)
   } catch (error) {
-    console.error('Get posts error:', error)
+    logger.error('Get posts error:', error)
     res.status(500).json({ error: 'Failed to get posts' })
   }
 })
@@ -139,10 +152,10 @@ router.get('/blog/:blogId', async (req: Request, res: Response): Promise<void> =
       .eq('blog_id', blogId)
       .order('created_at', { ascending: false })
 
-    // 소유자가 아니면 공개글만 -> 이제 목록에서는 모두 노출
-    // if (!isOwner) {
-    //   query = query.eq('published', true)
-    // }
+    // 소유자가 아니면 공개글만
+    if (!isOwner) {
+      query = query.eq('is_private', false)
+    }
 
     const { data, error } = await query
 
@@ -153,20 +166,25 @@ router.get('/blog/:blogId', async (req: Request, res: Response): Promise<void> =
 
     res.json(data)
   } catch (error) {
-    console.error('Get blog posts error:', error)
+    logger.error('Get blog posts error:', error)
     res.status(500).json({ error: 'Failed to get blog posts' })
   }
 })
 
-// 게시글 상세 조회
+// 게시글 상세 조회 (조회수 증가 포함)
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params
     const authHeader = req.headers.authorization
 
+    // relation join으로 단일 쿼리로 조회
     const { data: post, error: postError } = await supabase
       .from('posts')
-      .select('*')
+      .select(`
+        *,
+        blog:blogs ( id, user_id, name, thumbnail_url ),
+        category:categories ( id, name )
+      `)
       .eq('id', id)
       .single()
 
@@ -175,79 +193,58 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
-    // 블로그 정보
-    const { data: blog } = await supabase
-      .from('blogs')
-      .select('id, user_id, name, thumbnail_url')
-      .eq('id', post.blog_id)
-      .single()
+    const typedPost = post as Post & {
+      blog: Pick<Blog, 'id' | 'user_id' | 'name' | 'thumbnail_url'> | null
+      category: Pick<Category, 'id' | 'name'> | null
+    }
 
-    if (!blog) {
+    if (!typedPost.blog) {
       res.status(404).json({ error: 'Blog not found' })
       return
     }
 
-    // 디버깅: 전체 포스트 데이터 확인
-    console.log('Post Data Check:', post)
-
     // 비공개 글 접근 권한 확인
-    // 요청사항: is_private(TRUE=비공개)만 사용하여 제어
-    const isPrivate = (post as any).is_private === true
-
-    if (isPrivate) {
+    if (typedPost.is_private) {
       let isOwner = false
 
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1]
         const authClient = createAuthenticatedClient(token)
         const { data: { user } } = await authClient.auth.getUser()
-
-        // 디버깅 로그
-        console.log('Debug Private Access:', {
-          postId: post.id,
-          postUserId: post.user_id,
-          requestUserId: user?.id,
-          isMatch: user?.id === post.user_id
-        })
-
-        // 요청대로 posts의 user_id와 현재 로그인한 유저의 id를 비교
-        isOwner = user?.id === post.user_id
+        isOwner = user?.id === typedPost.user_id
       }
 
-
       if (!isOwner) {
-        // 권한 없음 시 403 리턴 (리스트에는 노출되므로 존재 여부는 숨기지 않음)
         res.status(403).json({ error: 'Private post' })
         return
       }
     }
 
-    // 카테고리 정보
-    let category = null
-    if (post.category_id) {
-      const { data: categoryData } = await supabase
-        .from('categories')
-        .select('id, name')
-        .eq('id', post.category_id)
-        .single()
-      category = categoryData
-    }
+    // 조회수 증가 (비동기로 처리, 실패해도 응답에 영향 없음)
+    void (async () => {
+      try {
+        await supabase
+          .from('posts')
+          .update({ view_count: (typedPost.view_count || 0) + 1 })
+          .eq('id', id)
+      } catch {
+        // Ignore errors
+      }
+    })()
 
     // 프로필 정보
     const { data: profile } = await supabase
       .from('profiles')
       .select('id, nickname, profile_image_url')
-      .eq('id', blog.user_id)
+      .eq('id', typedPost.blog.user_id)
       .single()
 
     res.json({
-      ...post,
-      blog,
-      category,
+      ...typedPost,
       profile,
     })
   } catch (error) {
-    console.error('Get post error:', error)
+    logger.error('Get post error:', error)
     res.status(500).json({ error: 'Failed to get post' })
   }
 })
@@ -256,7 +253,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const user = req.user!
-    const { blog_id, title, content, category_ids, published } = req.body
+    const { blog_id, title, content, category_ids, is_private, is_allow_comment, thumbnail_url } = req.body
 
     if (!blog_id || !title) {
       res.status(400).json({ error: 'blog_id and title are required' })
@@ -278,27 +275,23 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
     const token = req.headers.authorization!.split(' ')[1]
     const authClient = createAuthenticatedClient(token)
 
-    // content에서 첫 번째 이미지를 썸네일로 추출
-    const { title: newTitle, content: newContent, category_ids: newCategoryIds, published: newPublished, is_private, is_allow_comment, thumbnail_url } = req.body
-
     const { data, error } = await authClient
       .from('posts')
       .insert({
         blog_id,
         user_id: user.id,
-        title: newTitle.trim(),
-        content: newContent || '',
-        // published: published ?? true, // 삭제 (is_private로 대체) -> DB Default가 무엇인지 모르므로 우선 true 강제
+        title: title.trim(),
+        content: content || '',
         published: true,
-        is_private: is_private ?? false, // 기본 공개
-        // is_allow_comment: is_allow_comment ?? true, // DB 컬럼 없음 대비 임시 주석
-        thumbnail_url: thumbnail_url || extractFirstImageUrl(newContent),
+        is_private: is_private ?? false,
+        is_allow_comment: is_allow_comment ?? true,
+        thumbnail_url: thumbnail_url || extractFirstImageUrl(content || ''),
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Insert error:', error)
+      logger.error('Insert error:', error)
       res.status(500).json({ error: error.message })
       return
     }
@@ -317,7 +310,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
     res.status(201).json(data)
   } catch (error) {
-    console.error('Create post error:', error)
+    logger.error('Create post error:', error)
     res.status(500).json({ error: 'Failed to create post' })
   }
 })
@@ -327,7 +320,7 @@ router.patch('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Resp
   try {
     const user = req.user!
     const { id } = req.params
-    const { title, content, category_ids, published } = req.body
+    const { title, content, category_ids, is_private, is_allow_comment, thumbnail_url } = req.body
 
     // 게시글 소유자 확인
     const { data: post } = await supabase
@@ -355,19 +348,14 @@ router.patch('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Resp
     const token = req.headers.authorization!.split(' ')[1]
     const authClient = createAuthenticatedClient(token)
 
-    const updateData: Record<string, unknown> = {}
+    const updateData: Partial<Post> = {}
     if (title !== undefined) updateData.title = title.trim()
     if (content !== undefined) {
       updateData.content = content
-      // content가 변경되면 썸네일도 업데이트
       updateData.thumbnail_url = extractFirstImageUrl(content)
     }
-    // if (published !== undefined) updateData.published = published
-
-    // 요청: is_private 추가
-    const { is_private, is_allow_comment, thumbnail_url } = req.body
-    if (is_private !== undefined) (updateData as any).is_private = is_private
-    // if (is_allow_comment !== undefined) (updateData as any).is_allow_comment = is_allow_comment // DB 컬럼 없음 대비 임시 주석
+    if (is_private !== undefined) updateData.is_private = is_private
+    if (is_allow_comment !== undefined) updateData.is_allow_comment = is_allow_comment
     if (thumbnail_url !== undefined) updateData.thumbnail_url = thumbnail_url
 
     const { data, error } = await authClient
@@ -384,13 +372,11 @@ router.patch('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Resp
 
     // 카테고리 업데이트 (기존 삭제 후 새로 추가)
     if (category_ids !== undefined && Array.isArray(category_ids)) {
-      // 기존 카테고리 연결 삭제
       await authClient
         .from('post_categories')
         .delete()
         .eq('post_id', id)
 
-      // 새 카테고리 연결
       if (category_ids.length > 0) {
         const postCategories = category_ids.slice(0, 5).map((categoryId: string) => ({
           post_id: id,
@@ -405,7 +391,7 @@ router.patch('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Resp
 
     res.json(data)
   } catch (error) {
-    console.error('Update post error:', error)
+    logger.error('Update post error:', error)
     res.status(500).json({ error: 'Failed to update post' })
   }
 })
@@ -454,7 +440,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
 
     res.json({ success: true })
   } catch (error) {
-    console.error('Delete post error:', error)
+    logger.error('Delete post error:', error)
     res.status(500).json({ error: 'Failed to delete post' })
   }
 })

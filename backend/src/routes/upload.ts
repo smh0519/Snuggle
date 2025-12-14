@@ -3,7 +3,7 @@ import multer from 'multer'
 import { v4 as uuidv4 } from 'uuid'
 import { AuthenticatedRequest, authMiddleware } from '../middleware/auth.js'
 import { uploadToR2, deleteFromR2, getKeyFromUrl } from '../services/r2.service.js'
-import { env } from '../config/env.js'
+import { logger } from '../utils/logger.js'
 
 const router = Router()
 
@@ -50,7 +50,7 @@ router.post(
 
       res.json({ url })
     } catch (error) {
-      console.error('Upload error:', error)
+      logger.error('Upload error:', error)
       res.status(500).json({ error: 'Upload failed' })
     }
   }
@@ -94,7 +94,7 @@ router.post(
 
       res.json({ url })
     } catch (error) {
-      console.error('Upload error:', error)
+      logger.error('Upload error:', error)
       res.status(500).json({ error: 'Upload failed' })
     }
   }
@@ -131,7 +131,7 @@ router.delete(
 
       res.json({ success: true })
     } catch (error) {
-      console.error('Delete error:', error)
+      logger.error('Delete error:', error)
       res.status(500).json({ error: 'Delete failed' })
     }
   }

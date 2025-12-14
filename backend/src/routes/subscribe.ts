@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import { AuthenticatedRequest, authMiddleware } from '../middleware/auth.js'
 import { createAuthenticatedClient } from '../services/supabase.service.js'
+import { logger } from '../utils/logger.js'
 
 const router = Router()
 
@@ -26,7 +27,7 @@ router.get('/counts', authMiddleware, async (req: AuthenticatedRequest, res: Res
             .eq('subed_id', targetId)
 
         if (followingError || followersError) {
-            console.error('Subscription count error:', followingError || followersError)
+            logger.error('Subscription count error:', followingError || followersError)
             res.status(500).json({ error: 'Failed to fetch subscription counts' })
             return
         }
@@ -36,7 +37,7 @@ router.get('/counts', authMiddleware, async (req: AuthenticatedRequest, res: Res
             followers: followersCount || 0,
         })
     } catch (error) {
-        console.error('Subscription count error:', error)
+        logger.error('Subscription count error:', error)
         res.status(500).json({ error: 'Failed to fetch subscription counts' })
     }
 })
@@ -63,14 +64,14 @@ router.get('/check', authMiddleware, async (req: AuthenticatedRequest, res: Resp
             .single()
 
         if (error && error.code !== 'PGRST116') { // PGRST116 is 'not found'
-            console.error('Check subscription error:', error)
+            logger.error('Check subscription error:', error)
             res.status(500).json({ error: 'Failed to check subscription' })
             return
         }
 
         res.json({ subscribed: !!data })
     } catch (error) {
-        console.error('Check subscription error:', error)
+        logger.error('Check subscription error:', error)
         res.status(500).json({ error: 'Failed to check subscription' })
     }
 })
@@ -164,7 +165,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
         }
 
     } catch (error) {
-        console.error('Toggle subscription error:', error)
+        logger.error('Toggle subscription error:', error)
         res.status(500).json({ error: 'Failed to toggle subscription' })
     }
 })

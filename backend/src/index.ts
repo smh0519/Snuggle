@@ -9,6 +9,8 @@ import skinsRouter from './routes/skins.js'
 import searchRouter from './routes/search.js'
 import subscribeRouter from './routes/subscribe.js'
 import forumRouter from './routes/forum.js'
+import { startCleanupScheduler } from './services/scheduler.service.js'
+import { logger } from './utils/logger.js'
 
 const app = express()
 
@@ -37,5 +39,8 @@ app.get('/health', (req, res) => {
 
 // Start server
 app.listen(env.port, () => {
-  console.log(`Server running on http://localhost:${env.port}`)
+  logger.log(`Server running on http://localhost:${env.port}`)
+
+  // 임시 파일 정리 스케줄러 시작 (6시간마다 실행, 24시간 이상 된 파일 삭제)
+  startCleanupScheduler(6, 24)
 })

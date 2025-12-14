@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import { AuthenticatedRequest, authMiddleware } from '../middleware/auth.js'
 import { createAuthenticatedClient } from '../services/supabase.service.js'
+import { logger } from '../utils/logger.js'
 
 const router = Router()
 
@@ -36,14 +37,14 @@ router.post('/sync', authMiddleware, async (req: AuthenticatedRequest, res: Resp
       .single()
 
     if (error) {
-      console.error('Profile sync error:', error)
+      logger.error('Profile sync error:', error)
       res.status(500).json({ error: error.message })
       return
     }
 
     res.json(data)
   } catch (error) {
-    console.error('Profile sync error:', error)
+    logger.error('Profile sync error:', error)
     res.status(500).json({ error: 'Failed to sync profile' })
   }
 })

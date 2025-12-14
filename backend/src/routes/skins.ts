@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import { AuthenticatedRequest, authMiddleware } from '../middleware/auth.js'
 import { createAuthenticatedClient, supabase } from '../services/supabase.service.js'
+import { logger } from '../utils/logger.js'
 
 const router = Router()
 
@@ -63,7 +64,7 @@ router.get('/', async (req, res): Promise<void> => {
 
     res.json(allSkins)
   } catch (error) {
-    console.error('Get skins error:', error)
+    logger.error('Get skins error:', error)
     res.status(500).json({ error: 'Failed to get skins' })
   }
 })
@@ -85,7 +86,7 @@ router.get('/marketplace', async (req, res): Promise<void> => {
 
     res.json(data)
   } catch (error) {
-    console.error('Get marketplace skins error:', error)
+    logger.error('Get marketplace skins error:', error)
     res.status(500).json({ error: 'Failed to get marketplace skins' })
   }
 })
@@ -109,7 +110,7 @@ router.get('/library', authMiddleware, async (req: AuthenticatedRequest, res: Re
 
     res.json(data || [])
   } catch (error) {
-    console.error('Get skin library error:', error)
+    logger.error('Get skin library error:', error)
     res.status(500).json({ error: 'Failed to get skin library' })
   }
 })
@@ -144,7 +145,7 @@ router.post('/download/:skinId', authMiddleware, async (req: AuthenticatedReques
       .maybeSingle()
 
     if (checkError) {
-      console.error('Check existing error:', checkError)
+      logger.error('Check existing error:', checkError)
     }
 
     if (existing) {
@@ -169,7 +170,7 @@ router.post('/download/:skinId', authMiddleware, async (req: AuthenticatedReques
 
     res.json(data)
   } catch (error) {
-    console.error('Download skin error:', error)
+    logger.error('Download skin error:', error)
     res.status(500).json({ error: 'Failed to download skin' })
   }
 })
@@ -192,7 +193,7 @@ router.get('/:id', async (req, res): Promise<void> => {
 
     res.json(data)
   } catch (error) {
-    console.error('Get skin error:', error)
+    logger.error('Get skin error:', error)
     res.status(500).json({ error: 'Failed to get skin' })
   }
 })
@@ -234,7 +235,7 @@ router.get('/blog/:blogId', async (req, res): Promise<void> => {
 
     res.json(data)
   } catch (error) {
-    console.error('Get blog skin error:', error)
+    logger.error('Get blog skin error:', error)
     res.status(500).json({ error: 'Failed to get blog skin' })
   }
 })
@@ -299,7 +300,7 @@ router.post('/apply', authMiddleware, async (req: AuthenticatedRequest, res: Res
 
     res.json(data)
   } catch (error) {
-    console.error('Apply skin error:', error)
+    logger.error('Apply skin error:', error)
     res.status(500).json({ error: 'Failed to apply skin' })
   }
 })
@@ -381,7 +382,7 @@ router.patch('/customize/:blogId', authMiddleware, async (req: AuthenticatedRequ
 
     res.json(result)
   } catch (error) {
-    console.error('Customize skin error:', error)
+    logger.error('Customize skin error:', error)
     res.status(500).json({ error: 'Failed to customize skin' })
   }
 })
@@ -419,7 +420,7 @@ router.delete('/blog/:blogId', authMiddleware, async (req: AuthenticatedRequest,
 
     res.json({ success: true })
   } catch (error) {
-    console.error('Reset skin error:', error)
+    logger.error('Reset skin error:', error)
     res.status(500).json({ error: 'Failed to reset skin' })
   }
 })

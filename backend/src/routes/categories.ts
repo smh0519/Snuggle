@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import { AuthenticatedRequest, authMiddleware } from '../middleware/auth.js'
 import { createAuthenticatedClient, supabase } from '../services/supabase.service.js'
+import { logger } from '../utils/logger.js'
 
 const router = Router()
 
@@ -22,7 +23,7 @@ router.get('/blog/:blogId', async (req, res): Promise<void> => {
 
     res.json(data)
   } catch (error) {
-    console.error('Get categories error:', error)
+    logger.error('Get categories error:', error)
     res.status(500).json({ error: 'Failed to get categories' })
   }
 })
@@ -82,7 +83,7 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
 
     res.status(201).json(data)
   } catch (error) {
-    console.error('Create category error:', error)
+    logger.error('Create category error:', error)
     res.status(500).json({ error: 'Failed to create category' })
   }
 })
@@ -131,7 +132,7 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res: Res
 
     res.json({ success: true })
   } catch (error) {
-    console.error('Delete category error:', error)
+    logger.error('Delete category error:', error)
     res.status(500).json({ error: 'Failed to delete category' })
   }
 })

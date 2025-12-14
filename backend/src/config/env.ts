@@ -3,6 +3,8 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 export const env = {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  isProduction: process.env.NODE_ENV === 'production',
   port: process.env.PORT || 4000,
 
   supabase: {

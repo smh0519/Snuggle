@@ -5,6 +5,7 @@ import { Comment, getComments, createComment, deleteComment } from '@/lib/api/co
 import CommentForm from './CommentForm'
 import CommentItem from './CommentItem'
 import { useUserStore } from '@/lib/store/useUserStore'
+import { useBlogStore } from '@/lib/store/useBlogStore'
 import { useModal } from '@/components/common/Modal'
 
 interface CommentSectionProps {
@@ -12,11 +13,20 @@ interface CommentSectionProps {
 }
 
 export default function CommentSection({ postId }: CommentSectionProps) {
-    const { user } = useUserStore()
+    const { user, isLoading: isUserLoading } = useUserStore()
+    const { selectedBlog, isLoading: isBlogLoading, hasFetched, fetchBlogs } = useBlogStore()
     const { showAlert } = useModal()
     const [comments, setComments] = useState<Comment[]>([])
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
+
+    // 사용자 블로그 정보 로드
+    useEffect(() => {
+        if (isUserLoading) return
+        if (user && !hasFetched && !isBlogLoading) {
+            fetchBlogs(user.id)
+        }
+    }, [user, isUserLoading, hasFetched, isBlogLoading, fetchBlogs])
 
     const fetchComments = useCallback(async () => {
         try {
@@ -36,9 +46,8 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     const handleCreateComment = async (text: string) => {
         setSubmitting(true)
         try {
-            await createComment(postId, text)
-            // Refresh comments to get the new one with ID and profile
-            await fetchComments()
+            const newComment = await createComment(postId, text, undefined, selectedBlog?.id)
+            setComments(prev => [...prev, newComment])
         } catch (err) {
             console.error(err)
             await showAlert('댓글 작성에 실패했습니다.')
@@ -49,8 +58,8 @@ export default function CommentSection({ postId }: CommentSectionProps) {
 
     const handleReply = async (parentId: string, text: string) => {
         try {
-            await createComment(postId, text, parentId)
-            await fetchComments()
+            const newComment = await createComment(postId, text, parentId, selectedBlog?.id)
+            setComments(prev => [...prev, newComment])
         } catch (err) {
             throw err // Let Item handle error alert
         }

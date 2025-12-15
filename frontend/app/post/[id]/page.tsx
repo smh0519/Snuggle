@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getPost, PostWithDetails } from '@/lib/api/posts'
+import { createClient } from '@/lib/supabase/client'
 import hljs from 'highlight.js'
 import BlogSkinProvider from '@/components/blog/BlogSkinProvider'
 import BlogHeader from '@/components/layout/BlogHeader'
@@ -27,8 +28,14 @@ export default function PostPage() {
     const [postData, setPostData] = useState<PostWithDetails | null>(null)
     const [loading, setLoading] = useState(true)
     const [notFound, setNotFound] = useState(false)
+    const [isPrivateError, setIsPrivateError] = useState(false)
     const { user } = useUserStore()
     const { showAlert } = useModal()
+
+    // 페이지 진입/변경 시 스크롤 최상단 이동
+    useEffect(() => {
+        window.scrollTo(0, 0)
+    }, [postId])
 
     useEffect(() => {
         const fetchData = async () => {
@@ -41,9 +48,12 @@ export default function PostPage() {
                     return
                 }
                 setPostData(data)
-            } catch (err) {
-                console.error('Failed to load post:', err)
-                setNotFound(true)
+            } catch (err: any) {
+                if (err.message === 'Private' || err.message?.includes('Private')) {
+                    setIsPrivateError(true)
+                } else {
+                    setNotFound(true)
+                }
             }
 
             setLoading(false)
@@ -73,11 +83,32 @@ export default function PostPage() {
         })
     }
 
-
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-white dark:bg-black">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-black/20 border-t-black dark:border-white/20 dark:border-t-white" />
+            </div>
+        )
+    }
+
+    if (isPrivateError) {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-white dark:bg-black">
+                <div className="text-center">
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                        <svg className="h-8 w-8 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">비공개글입니다.</h2>
+                    <p className="mt-2 text-gray-500 dark:text-gray-400">작성자만 확인할 수 있는 게시글입니다.</p>
+                    <a
+                        href="/"
+                        className="mt-6 inline-block rounded-full bg-black px-6 py-2 text-sm font-medium text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90"
+                    >
+                        홈으로 돌아가기
+                    </a>
+                </div>
             </div>
         )
     }
@@ -169,14 +200,14 @@ export default function PostPage() {
                                     {(postData.blog.thumbnail_url || postData.profile?.profile_image_url) && (
                                         <img
                                             src={postData.blog.thumbnail_url || postData.profile?.profile_image_url || ''}
-                                            alt={postData.profile?.nickname || postData.blog.name}
+                                            alt={postData.blog.name}
                                             className="h-full w-full object-cover"
                                         />
                                     )}
                                 </div>
                                 <div>
                                     <p className="font-medium text-[var(--blog-fg)]">
-                                        {postData.profile?.nickname || postData.blog.name}
+                                        {postData.blog.name}
                                     </p>
                                     <p className="text-sm text-[var(--blog-muted)]">
                                         {formatDate(postData.created_at)}

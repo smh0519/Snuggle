@@ -103,7 +103,11 @@ export async function getPost(id: string): Promise<PostWithDetails | null> {
   }
 
   const response = await fetch(`${API_URL}/api/posts/${id}`, { headers })
-  if (response.status === 404 || response.status === 403) {
+  if (response.status === 403) {
+    throw new Error('Private')
+  }
+
+  if (response.status === 404) {
     return null
   }
 

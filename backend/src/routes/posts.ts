@@ -42,11 +42,10 @@ router.get('/feed', authMiddleware, async (req: AuthenticatedRequest, res: Respo
     const { data: posts, error: postError } = await supabase
       .from('posts')
       .select(`
-        id, title, content, thumbnail_url, created_at, blog_id, user_id,
+        id, title, content, thumbnail_url, created_at, blog_id, user_id, is_private,
         blog:blogs ( name, thumbnail_url, user_id )
       `)
       .in('user_id', subscribedUserIds)
-      .eq('is_private', false)
       .order('created_at', { ascending: false })
       .limit(limit)
 

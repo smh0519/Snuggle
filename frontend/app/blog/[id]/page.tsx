@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
@@ -9,6 +9,7 @@ import BlogPostList from '@/components/blog/BlogPostList'
 import BlogSkinProvider, { useBlogSkin } from '@/components/blog/BlogSkinProvider'
 import BlogLayout from '@/components/blog/BlogLayout'
 import BlogHeader from '@/components/layout/BlogHeader'
+import { trackBlogVisit } from '@/lib/api/blogs'
 
 interface Blog {
   id: string
@@ -77,6 +78,14 @@ export default function BlogPage() {
   const [postCount, setPostCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const visitTrackedRef = useRef(false)
+
+  // 방문자 추적 (한 번만 실행)
+  useEffect(() => {
+    if (visitTrackedRef.current) return
+    visitTrackedRef.current = true
+    trackBlogVisit(blogId)
+  }, [blogId])
 
   useEffect(() => {
     const fetchData = async () => {

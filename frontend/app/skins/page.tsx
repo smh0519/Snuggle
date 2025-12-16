@@ -2,13 +2,130 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { getAvailableSkins, applySkin, getBlogSkin, BlogSkin, removeSkinFromLibrary } from '@/lib/api/skins'
+import { getAvailableSkins, applySkin, getBlogSkin, BlogSkin, removeSkinFromLibrary, getMyDownloadedSkins, PublishedSkin, applyPublishedSkin, SkinCssVariables, removeDownloadedSkin, getAppliedPublishedSkinId } from '@/lib/api/skins'
 import { getBlogPosts, Post } from '@/lib/api/posts'
 import { useToast } from '@/components/common/ToastProvider'
+import { renderTemplate, TemplateContext } from '@/lib/utils/templateRenderer'
+import { getSubscriptionCounts } from '@/lib/api/subscribe'
+import { getVisitorCount } from '@/lib/api/blogs'
 import PreviewBlogLayout from '@/components/skin/PreviewBlogLayout'
 import PreviewSidebar from '@/components/skin/PreviewSidebar'
 import PreviewPostList from '@/components/skin/PreviewPostList'
+import DOMPurify from 'dompurify'
 import type { User } from '@supabase/supabase-js'
+
+// DOMPurify 설정
+const ALLOWED_TAGS: string[] = [
+  'div', 'span', 'p', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'ul', 'ol', 'li', 'br', 'hr', 'strong', 'em', 'b', 'i', 'u',
+  'header', 'footer', 'nav', 'main', 'aside', 'article', 'section',
+  'figure', 'figcaption', 'blockquote', 'pre', 'code',
+  'table', 'thead', 'tbody', 'tr', 'th', 'td', 'button', 'svg', 'path',
+]
+
+const ALLOWED_ATTR: string[] = [
+  'class', 'id', 'href', 'src', 'alt', 'title', 'style',
+  'data-post-id', 'data-blog-id', 'data-category-id',
+  'target', 'rel', 'width', 'height', 'loading',
+  'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'd',
+]
+
+function sanitizeHTML(html: string): string {
+  if (typeof window === 'undefined') return ''
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS, ALLOWED_ATTR, ALLOW_DATA_ATTR: true })
+}
+
+// 커뮤니티 스킨 미리보기 컴포넌트 (DOMPurify로 HTML 정제됨)
+function PublishedSkinPreview({
+  publishedSkins,
+  selectedSkinId,
+  userBlog,
+  blogPosts,
+  displayImage,
+  subscriberCount,
+  visitorCount,
+}: {
+  publishedSkins: PublishedSkin[]
+  selectedSkinId: string
+  userBlog: { id: string; name: string; description: string | null } | null
+  blogPosts: Post[]
+  displayImage: string | null | undefined
+  subscriberCount: number
+  visitorCount: number
+}) {
+  const publishedSkin = publishedSkins.find(s => s.id === selectedSkinId)
+
+  if (!publishedSkin) {
+    return (
+      <div className="flex h-[600px] items-center justify-center">
+        <p className="text-neutral-500">스킨 데이터를 불러올 수 없습니다</p>
+      </div>
+    )
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    return `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+  }
+
+  const templateContext: TemplateContext = {
+    blog_id: userBlog?.id || 'preview',
+    blog_name: userBlog?.name || '내 블로그',
+    blog_description: userBlog?.description || '',
+    profile_image: displayImage || '',
+    post_count: blogPosts.length,
+    subscriber_count: subscriberCount,
+    visitor_count: visitorCount,
+    current_year: new Date().getFullYear(),
+    no_posts: blogPosts.length === 0,
+    posts: blogPosts.map((p) => ({
+      post_id: p.id,
+      post_title: p.title,
+      post_excerpt: p.content ? p.content.replace(/<[^>]*>/g, '').substring(0, 100) : '',
+      post_date: formatDate(p.created_at),
+      thumbnail_url: p.thumbnail_url || undefined,
+      view_count: p.view_count || 0,
+      like_count: p.like_count || 0,
+      blog_id: userBlog?.id || 'preview',
+    })),
+  }
+
+  const partials = { post_item: publishedSkin.html_post_item || '' }
+  const renderedHeader = renderTemplate(publishedSkin.html_header || '', templateContext, partials)
+  const renderedPostList = renderTemplate(publishedSkin.html_post_list || '', templateContext, partials)
+  const renderedSidebar = renderTemplate(publishedSkin.html_sidebar || '', templateContext, partials)
+  const renderedFooter = renderTemplate(publishedSkin.html_footer || '', templateContext, partials)
+
+  const fullHtml = sanitizeHTML(`
+    ${renderedHeader}
+    <main style="max-width: 1280px; margin: 0 auto; padding: 2rem 1.5rem;">
+      <div style="display: flex; gap: 2rem;">
+        <div style="flex: 1;">${renderedPostList}</div>
+        <aside style="width: 280px; flex-shrink: 0;">${renderedSidebar}</aside>
+      </div>
+    </main>
+    ${renderedFooter}
+  `)
+
+  return (
+    <div
+      className="h-[600px] overflow-auto"
+      style={{
+        '--blog-bg': '#ffffff',
+        '--blog-fg': '#000000',
+        '--blog-accent': '#000000',
+        '--blog-muted': '#666666',
+        '--blog-border': '#e5e5e5',
+        '--blog-card-bg': '#fafafa',
+        backgroundColor: 'var(--blog-bg)',
+        color: 'var(--blog-fg)',
+      } as React.CSSProperties}
+    >
+      <style>{publishedSkin.custom_css || ''}</style>
+      <div className="custom-skin-wrapper" dangerouslySetInnerHTML={{ __html: fullHtml }} />
+    </div>
+  )
+}
 
 interface Blog {
   id: string
@@ -23,18 +140,40 @@ interface Profile {
   profile_image_url: string | null
 }
 
+// 통합 스킨 타입 (시스템 스킨 + 배포 스킨)
+type UnifiedSkin = {
+  id: string
+  name: string
+  description: string | null
+  thumbnail_url: string | null
+  is_system: boolean
+  css_variables: Record<string, string>
+  layout_config: { layout: string } | null
+  // 배포 스킨 전용
+  creator?: {
+    nickname: string | null
+    profile_image_url: string | null
+  }
+  download_count?: number
+  source_type: 'system' | 'published'
+}
+
 export default function SkinsPage() {
   const [user, setUser] = useState<User | null>(null)
   const [userBlog, setUserBlog] = useState<Blog | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [blogPosts, setBlogPosts] = useState<Post[]>([])
   const [skins, setSkins] = useState<BlogSkin[]>([])
+  const [publishedSkins, setPublishedSkins] = useState<PublishedSkin[]>([])
   const [loading, setLoading] = useState(true)
   const [applying, setApplying] = useState(false)
   const [removing, setRemoving] = useState<string | null>(null)
-  const [selectedSkin, setSelectedSkin] = useState<BlogSkin | null>(null)
+  const [selectedSkin, setSelectedSkin] = useState<UnifiedSkin | null>(null)
   const [appliedSkinId, setAppliedSkinId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState<'all' | 'official' | 'community'>('all')
+  const [subscriberCount, setSubscriberCount] = useState(0)
+  const [visitorCount, setVisitorCount] = useState(0)
   const toast = useToast()
 
   useEffect(() => {
@@ -65,12 +204,35 @@ export default function SkinsPage() {
           }
 
           try {
-            const skinApplication = await getBlogSkin(blogData.id)
-            if (skinApplication?.skin_id) {
-              setAppliedSkinId(skinApplication.skin_id)
+            // 먼저 적용된 배포 스킨 확인
+            const appliedPublishedId = await getAppliedPublishedSkinId(blogData.id)
+            if (appliedPublishedId) {
+              setAppliedSkinId(appliedPublishedId)
+            } else {
+              // 배포 스킨이 없으면 시스템 스킨 확인
+              const skinApplication = await getBlogSkin(blogData.id)
+              if (skinApplication?.skin_id) {
+                setAppliedSkinId(skinApplication.skin_id)
+              }
             }
           } catch (err) {
             console.error('Failed to load applied skin:', err)
+          }
+
+          // 구독자 수 조회
+          try {
+            const counts = await getSubscriptionCounts(user.id)
+            setSubscriberCount(counts.followers)
+          } catch (err) {
+            console.error('Failed to load subscriber count:', err)
+          }
+
+          // 방문자 수 조회
+          try {
+            const visitorData = await getVisitorCount(blogData.id)
+            setVisitorCount(visitorData.today)
+          } catch (err) {
+            console.error('Failed to load visitor count:', err)
           }
         }
 
@@ -88,11 +250,16 @@ export default function SkinsPage() {
       try {
         const skinsData = await getAvailableSkins()
         setSkins(skinsData)
-        if (skinsData.length > 0) {
-          setSelectedSkin(skinsData[0])
-        }
       } catch (err) {
         console.error('Failed to load skins:', err)
+      }
+
+      // 다운로드한 커뮤니티 스킨 조회
+      try {
+        const downloadedData = await getMyDownloadedSkins()
+        setPublishedSkins(downloadedData)
+      } catch (err) {
+        console.error('Failed to load downloaded skins:', err)
       }
 
       setLoading(false)
@@ -116,7 +283,25 @@ export default function SkinsPage() {
 
     setApplying(true)
     try {
-      await applySkin(userBlog.id, selectedSkin.id)
+      const supabase = createClient()
+
+      if (selectedSkin.source_type === 'published') {
+        // 배포된 스킨 적용
+        await applyPublishedSkin(userBlog.id, selectedSkin.id)
+      } else {
+        // 시스템 스킨 적용 전, 커스텀 스킨 비활성화
+        await supabase
+          .from('blog_custom_skins')
+          .update({
+            is_active: false,
+            source_published_skin_id: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('blog_id', userBlog.id)
+
+        // 시스템 스킨 적용
+        await applySkin(userBlog.id, selectedSkin.id)
+      }
       setAppliedSkinId(selectedSkin.id)
       toast.showToast('스킨이 적용되었습니다')
     } catch {
@@ -126,10 +311,10 @@ export default function SkinsPage() {
     }
   }
 
-  const handleRemoveSkin = async (skin: BlogSkin, e: React.MouseEvent) => {
+  const handleRemoveSkin = async (skin: UnifiedSkin, e: React.MouseEvent) => {
     e.stopPropagation()
 
-    if (skin.is_system) {
+    if (skin.source_type === 'system' || skin.is_system) {
       toast.showToast('공식 스킨은 삭제할 수 없습니다', 'error')
       return
     }
@@ -141,10 +326,17 @@ export default function SkinsPage() {
 
     setRemoving(skin.id)
     try {
-      await removeSkinFromLibrary(skin.id)
-      setSkins(prev => prev.filter(s => s.id !== skin.id))
+      if (skin.source_type === 'published') {
+        // 다운로드한 커뮤니티 스킨 제거
+        await removeDownloadedSkin(skin.id)
+        setPublishedSkins(prev => prev.filter(s => s.id !== skin.id))
+      } else {
+        // 시스템 스킨 라이브러리에서 제거
+        await removeSkinFromLibrary(skin.id)
+        setSkins(prev => prev.filter(s => s.id !== skin.id))
+      }
       if (selectedSkin?.id === skin.id) {
-        setSelectedSkin(skins.find(s => s.id !== skin.id) || null)
+        setSelectedSkin(null)
       }
       toast.showToast('스킨이 삭제되었습니다')
     } catch {
@@ -154,15 +346,76 @@ export default function SkinsPage() {
     }
   }
 
-  // 검색 필터링
+  // 통합 스킨 목록 생성
+  const unifiedSkins = useMemo<UnifiedSkin[]>(() => {
+    // 시스템 스킨 변환
+    const systemSkins: UnifiedSkin[] = skins.map(skin => ({
+      id: skin.id,
+      name: skin.name,
+      description: skin.description,
+      thumbnail_url: skin.thumbnail_url,
+      is_system: skin.is_system,
+      css_variables: skin.css_variables,
+      layout_config: skin.layout_config,
+      source_type: 'system' as const,
+    }))
+
+    // 배포된 스킨 변환 (CSS 변수는 기본값 사용)
+    const communityDefaultVars = {
+      '--blog-bg': '#ffffff',
+      '--blog-fg': '#000000',
+      '--blog-accent': '#000000',
+      '--blog-muted': '#6b7280',
+      '--blog-border': '#e5e7eb',
+      '--blog-card-bg': '#f9fafb',
+    }
+
+    const communitySkins: UnifiedSkin[] = publishedSkins.map(skin => ({
+      id: skin.id,
+      name: skin.name,
+      description: skin.description,
+      thumbnail_url: skin.thumbnail_url,
+      is_system: false,
+      css_variables: communityDefaultVars,
+      layout_config: null,
+      creator: skin.creator,
+      download_count: skin.download_count,
+      source_type: 'published' as const,
+    }))
+
+    return [...systemSkins, ...communitySkins]
+  }, [skins, publishedSkins])
+
+  // 검색 및 탭 필터링
   const filteredSkins = useMemo(() => {
-    if (!searchQuery.trim()) return skins
-    const query = searchQuery.toLowerCase()
-    return skins.filter(skin =>
-      skin.name.toLowerCase().includes(query) ||
-      skin.description?.toLowerCase().includes(query)
-    )
-  }, [skins, searchQuery])
+    let result = unifiedSkins
+
+    // 탭 필터
+    if (activeTab === 'official') {
+      result = result.filter(skin => skin.source_type === 'system')
+    } else if (activeTab === 'community') {
+      result = result.filter(skin => skin.source_type === 'published')
+    }
+
+    // 검색 필터
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(skin =>
+        skin.name.toLowerCase().includes(query) ||
+        skin.description?.toLowerCase().includes(query) ||
+        skin.creator?.nickname?.toLowerCase().includes(query)
+      )
+    }
+
+    return result
+  }, [unifiedSkins, activeTab, searchQuery])
+
+  // 첫 스킨 선택
+  useEffect(() => {
+    if (filteredSkins.length > 0 && !selectedSkin) {
+      setSelectedSkin(filteredSkins[0])
+    }
+  }, [filteredSkins, selectedSkin])
 
   if (loading) {
     return (
@@ -172,8 +425,8 @@ export default function SkinsPage() {
     )
   }
 
-  const cssVars = selectedSkin?.css_variables
-  const layout = selectedSkin?.layout_config?.layout || 'sidebar-right'
+  const cssVars = selectedSkin?.css_variables as SkinCssVariables | undefined
+  const layout = (selectedSkin?.layout_config?.layout || 'sidebar-right') as 'sidebar-right' | 'sidebar-left' | 'no-sidebar'
   const displayImage = userBlog?.thumbnail_url || profile?.profile_image_url
 
   return (
@@ -232,6 +485,27 @@ export default function SkinsPage() {
           {/* 왼쪽: 스킨 목록 */}
           <div className="w-[280px] shrink-0">
             <div className="sticky top-20 space-y-3">
+              {/* 탭 */}
+              <div className="flex rounded-lg border border-neutral-200 bg-neutral-100 p-1 dark:border-neutral-800 dark:bg-neutral-900">
+                {[
+                  { key: 'all', label: '전체' },
+                  { key: 'official', label: '공식' },
+                  { key: 'community', label: '커뮤니티' },
+                ].map(tab => (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      activeTab === tab.key
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-800 dark:text-white'
+                        : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
               {/* 검색 */}
               <div className="relative">
                 <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,7 +513,7 @@ export default function SkinsPage() {
                 </svg>
                 <input
                   type="text"
-                  placeholder="스킨 검색..."
+                  placeholder="스킨, 제작자 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full rounded-lg border border-neutral-200 bg-white py-2 pl-9 pr-3 text-sm text-neutral-900 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-400 dark:border-neutral-800 dark:bg-neutral-900 dark:text-white dark:placeholder-neutral-500 dark:focus:border-neutral-600"
@@ -307,7 +581,7 @@ export default function SkinsPage() {
                                 <span className="truncate text-sm font-medium text-neutral-900 dark:text-white">
                                   {skin.name}
                                 </span>
-                                {skin.is_system && (
+                                {skin.source_type === 'system' && skin.is_system && (
                                   <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" style={{ backgroundColor: accentColor + '20', color: accentColor }}>
                                     Official
                                   </span>
@@ -318,7 +592,32 @@ export default function SkinsPage() {
                                   </span>
                                 )}
                               </div>
-                              {skin.description && (
+                              {/* 제작자 정보 (커뮤니티 스킨) */}
+                              {skin.source_type === 'published' && skin.creator && (
+                                <div className="mt-0.5 flex items-center gap-1.5">
+                                  {skin.creator.profile_image_url ? (
+                                    <img
+                                      src={skin.creator.profile_image_url}
+                                      alt={skin.creator.nickname || '제작자'}
+                                      className="h-4 w-4 rounded-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-4 w-4 items-center justify-center rounded-full bg-violet-100 text-[8px] font-bold text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                                      {(skin.creator.nickname || '?')[0]}
+                                    </div>
+                                  )}
+                                  <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">
+                                    {skin.creator.nickname || '익명'}
+                                  </span>
+                                  {skin.download_count !== undefined && skin.download_count > 0 && (
+                                    <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                                      · {skin.download_count}회 적용
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {/* 설명 (시스템 스킨) */}
+                              {skin.source_type === 'system' && skin.description && (
                                 <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
                                   {skin.description}
                                 </p>
@@ -326,7 +625,7 @@ export default function SkinsPage() {
                             </div>
 
                             {/* 삭제 버튼 (비공식 스킨만) */}
-                            {!skin.is_system && !isApplied && (
+                            {skin.source_type !== 'system' && !skin.is_system && !isApplied && (
                               <button
                                 onClick={(e) => handleRemoveSkin(skin, e)}
                                 disabled={isRemoving}
@@ -347,7 +646,7 @@ export default function SkinsPage() {
                             )}
 
                             {/* 선택 표시 */}
-                            {isSelected && !(!skin.is_system && !isApplied) && (
+                            {isSelected && !(skin.source_type !== 'system' && !skin.is_system && !isApplied) && (
                               <svg className="h-4 w-4 shrink-0 text-neutral-900 dark:text-white" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
@@ -386,7 +685,7 @@ export default function SkinsPage() {
                       <h2 className="text-lg font-medium text-neutral-900 dark:text-white">
                         {selectedSkin.name}
                       </h2>
-                      {selectedSkin.is_system && (
+                      {selectedSkin.source_type === 'system' && selectedSkin.is_system && (
                         <span
                           className="flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
                           style={{
@@ -401,10 +700,35 @@ export default function SkinsPage() {
                         </span>
                       )}
                     </div>
-                    {selectedSkin.description && (
+                    {/* 시스템 스킨 설명 */}
+                    {selectedSkin.source_type === 'system' && selectedSkin.description && (
                       <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
                         {selectedSkin.description}
                       </p>
+                    )}
+                    {/* 커뮤니티 스킨 제작자 정보 */}
+                    {selectedSkin.source_type === 'published' && selectedSkin.creator && (
+                      <div className="mt-1 flex items-center gap-2">
+                        {selectedSkin.creator.profile_image_url ? (
+                          <img
+                            src={selectedSkin.creator.profile_image_url}
+                            alt={selectedSkin.creator.nickname || '제작자'}
+                            className="h-5 w-5 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-100 text-[10px] font-bold text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">
+                            {(selectedSkin.creator.nickname || '?')[0]}
+                          </div>
+                        )}
+                        <span className="text-sm text-neutral-600 dark:text-neutral-400">
+                          {selectedSkin.creator.nickname || '익명'}
+                        </span>
+                        {selectedSkin.download_count !== undefined && selectedSkin.download_count > 0 && (
+                          <span className="text-xs text-neutral-400 dark:text-neutral-500">
+                            · {selectedSkin.download_count}회 적용
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                   {appliedSkinId === selectedSkin.id ? (
@@ -441,73 +765,78 @@ export default function SkinsPage() {
                     </div>
                   </div>
 
-                  {/* 미리보기 콘텐츠 */}
-                  <div
-                    className="flex h-[600px] flex-col overflow-hidden"
-                    style={{
-                      backgroundColor: cssVars['--blog-bg'],
-                      color: cssVars['--blog-fg'],
-                      fontFamily: cssVars['--blog-font-sans'],
-                    }}
-                  >
-                    {/* 블로그 헤더 */}
-                    <header
-                      className="relative shrink-0 border-b"
-                      style={{ borderColor: cssVars['--blog-border'] }}
+                  {/* 미리보기 콘텐츠 - 커뮤니티 스킨은 커스텀 템플릿, 시스템 스킨은 기본 컴포넌트 */}
+                  {selectedSkin.source_type === 'published' ? (
+                    <PublishedSkinPreview
+                      publishedSkins={publishedSkins}
+                      selectedSkinId={selectedSkin.id}
+                      userBlog={userBlog}
+                      blogPosts={blogPosts}
+                      displayImage={displayImage}
+                      subscriberCount={subscriberCount}
+                      visitorCount={visitorCount}
+                    />
+                  ) : (
+                    <div
+                      className="flex h-[600px] flex-col overflow-hidden"
+                      style={{
+                        backgroundColor: cssVars['--blog-bg'],
+                        color: cssVars['--blog-fg'],
+                        fontFamily: cssVars['--blog-font-sans'],
+                      }}
                     >
-                      <div className="relative flex h-12 items-center justify-between px-5">
-                        {/* 로고 + 블로그명 */}
-                        <div className="flex items-center gap-3">
-                          <span className="text-base font-bold" style={{ color: cssVars['--blog-fg'] }}>
-                            Snuggle
-                          </span>
-                          <span className="text-sm" style={{ color: cssVars['--blog-muted'] }}>/</span>
-                          <span className="text-sm font-medium" style={{ color: cssVars['--blog-fg'] }}>
-                            {userBlog?.name || '내 블로그'}
-                          </span>
+                      {/* 블로그 헤더 */}
+                      <header
+                        className="relative shrink-0 border-b"
+                        style={{ borderColor: cssVars['--blog-border'] }}
+                      >
+                        <div className="relative flex h-12 items-center justify-between px-5">
+                          <div className="flex items-center gap-3">
+                            <span className="text-base font-bold" style={{ color: cssVars['--blog-fg'] }}>
+                              Snuggle
+                            </span>
+                            <span className="text-sm" style={{ color: cssVars['--blog-muted'] }}>/</span>
+                            <span className="text-sm font-medium" style={{ color: cssVars['--blog-fg'] }}>
+                              {userBlog?.name || '내 블로그'}
+                            </span>
+                          </div>
+                          <nav className="absolute left-1/2 flex -translate-x-1/2 items-center gap-5">
+                            <span className="text-xs font-bold" style={{ color: cssVars['--blog-fg'] }}>홈</span>
+                            <span className="text-xs font-medium" style={{ color: cssVars['--blog-muted'] }}>피드</span>
+                            <span className="text-xs font-medium" style={{ color: cssVars['--blog-muted'] }}>스킨</span>
+                          </nav>
+                          <div className="flex items-center gap-2">
+                            <button
+                              className="rounded-full px-3 py-1.5 text-xs font-medium"
+                              style={{
+                                backgroundColor: cssVars['--blog-accent'],
+                                color: cssVars['--blog-bg'],
+                              }}
+                            >
+                              시작하기
+                            </button>
+                          </div>
                         </div>
-
-                        {/* 네비게이션 - 중앙 */}
-                        <nav className="absolute left-1/2 flex -translate-x-1/2 items-center gap-5">
-                          <span className="text-xs font-bold" style={{ color: cssVars['--blog-fg'] }}>홈</span>
-                          <span className="text-xs font-medium" style={{ color: cssVars['--blog-muted'] }}>피드</span>
-                          <span className="text-xs font-medium" style={{ color: cssVars['--blog-muted'] }}>스킨</span>
-                        </nav>
-
-                        {/* 오른쪽 액션 */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="rounded-full px-3 py-1.5 text-xs font-medium"
-                            style={{
-                              backgroundColor: cssVars['--blog-accent'],
-                              color: cssVars['--blog-bg'],
-                            }}
-                          >
-                            시작하기
-                          </button>
-                        </div>
-                      </div>
-                    </header>
-
-                    {/* 블로그 본문 */}
-                    <PreviewBlogLayout
-                      layout={layout}
-                      cssVars={cssVars}
-                      sidebar={
-                        <PreviewSidebar
-                          cssVars={cssVars}
-                          blogName={userBlog?.name}
-                          blogDescription={userBlog?.description}
-                          displayImage={displayImage}
-                          postCount={blogPosts.length}
-                          subscriberCount={12}
-                          visitorCount={48}
-                        />
-                      }
-                    >
-                      <PreviewPostList cssVars={cssVars} posts={blogPosts} />
-                    </PreviewBlogLayout>
-                  </div>
+                      </header>
+                      <PreviewBlogLayout
+                        layout={layout}
+                        cssVars={cssVars}
+                        sidebar={
+                          <PreviewSidebar
+                            cssVars={cssVars}
+                            blogName={userBlog?.name}
+                            blogDescription={userBlog?.description}
+                            displayImage={displayImage}
+                            postCount={blogPosts.length}
+                            subscriberCount={subscriberCount}
+                            visitorCount={visitorCount}
+                          />
+                        }
+                      >
+                        <PreviewPostList cssVars={cssVars} posts={blogPosts} />
+                      </PreviewBlogLayout>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

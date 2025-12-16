@@ -6,56 +6,39 @@ import { toggleLike } from '@/lib/api/posts'
 import { useUserStore } from '@/lib/store/useUserStore'
 
 interface FloatingActionBarProps {
+    show: boolean
     postId: string
     initialLikeCount?: number
     initialIsLiked?: boolean
-    commentCount?: number
 }
 
 export default function FloatingActionBar({
+    show,
     postId,
     initialLikeCount = 0,
     initialIsLiked = false,
-    commentCount = 0
 }: FloatingActionBarProps) {
     const [isLiked, setIsLiked] = useState(initialIsLiked)
     const [likeCount, setLikeCount] = useState(initialLikeCount)
-    const [isVisible, setIsVisible] = useState(true)
+    const [isAnimating, setIsAnimating] = useState(false)
     const { showAlert } = useModal()
     const { user } = useUserStore()
 
-    // 초기값 동기화
     useEffect(() => {
         setIsLiked(initialIsLiked)
         setLikeCount(initialLikeCount)
     }, [initialIsLiked, initialLikeCount])
 
-    // 스크롤 시 표시/숨김 (하단 도달 시 숨김)
-    useEffect(() => {
-        const handleScroll = () => {
-            const scrollHeight = document.documentElement.scrollHeight
-            const scrollTop = window.scrollY
-            const clientHeight = window.innerHeight
-
-            // 하단 200px 근처에서 숨김
-            if (scrollHeight - scrollTop - clientHeight < 200) {
-                setIsVisible(false)
-            } else {
-                setIsVisible(true)
-            }
-        }
-
-        window.addEventListener('scroll', handleScroll)
-        return () => window.removeEventListener('scroll', handleScroll)
-    }, [])
-
     const handleLike = async () => {
         if (!user) {
-            await showAlert('로그인이 필요한 기능입니다.')
+            await showAlert('로그인이 필요합니다.')
             return
         }
 
-        // Optimistic UI
+        // 애니메이션 트리거
+        setIsAnimating(true)
+        setTimeout(() => setIsAnimating(false), 300)
+
         const prevIsLiked = isLiked
         const prevCount = likeCount
         setIsLiked(!prevIsLiked)
@@ -66,7 +49,6 @@ export default function FloatingActionBar({
             setIsLiked(result.is_liked)
             setLikeCount(result.like_count)
         } catch (error) {
-            // Revert on error
             setIsLiked(prevIsLiked)
             setLikeCount(prevCount)
             await showAlert('오류가 발생했습니다.')
@@ -82,88 +64,111 @@ export default function FloatingActionBar({
         }
     }
 
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+
     const scrollToComments = () => {
-        const commentSection = document.querySelector('#comment-section')
-        if (commentSection) {
-            commentSection.scrollIntoView({ behavior: 'smooth' })
+        const commentsSection = document.querySelector('section.mt-16')
+        if (commentsSection) {
+            commentsSection.scrollIntoView({ behavior: 'smooth' })
         }
     }
 
     return (
         <div
-            className={`fixed left-[calc(50%-480px)] top-1/3 z-40 hidden flex-col items-center gap-3 rounded-full border border-black/10 bg-white/80 px-3 py-4 shadow-lg backdrop-blur-sm transition-all duration-300 dark:border-white/10 dark:bg-zinc-900/80 lg:flex ${
-                isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 pointer-events-none'
+            className={`fixed bottom-8 left-1/2 z-40 -translate-x-1/2 transition-all duration-500 ease-out ${
+                show
+                    ? 'translate-y-0 opacity-100'
+                    : 'translate-y-20 opacity-0 pointer-events-none'
             }`}
         >
-            {/* 좋아요 */}
-            <button
-                onClick={handleLike}
-                className="group flex flex-col items-center gap-1"
-                title="좋아요"
-            >
-                <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all ${
+            <div className="flex items-center gap-1 rounded-full bg-[var(--blog-card-bg,#ffffff)] px-2 py-2 shadow-xl shadow-black/10 ring-1 ring-black/[0.04] backdrop-blur-xl">
+                {/* 좋아요 버튼 */}
+                <button
+                    onClick={handleLike}
+                    className={`group relative flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition-all duration-200 ${
                         isLiked
-                            ? 'border-red-500 bg-red-500 text-white'
-                            : 'border-black/20 bg-white text-black/60 hover:border-red-500 hover:text-red-500 dark:border-white/20 dark:bg-zinc-800 dark:text-white/60 dark:hover:border-red-500 dark:hover:text-red-500'
+                            ? 'bg-red-500/10 text-red-500'
+                            : 'text-[var(--blog-fg)]/60 hover:bg-[var(--blog-fg)]/5 hover:text-[var(--blog-fg)]'
                     }`}
                 >
                     <svg
-                        className={`h-6 w-6 ${isLiked ? 'fill-current' : 'fill-none'}`}
+                        className={`h-5 w-5 transition-transform duration-200 ${
+                            isAnimating ? 'scale-125' : 'scale-100'
+                        } ${isLiked ? 'fill-current' : 'fill-none'}`}
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                     >
                         <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            strokeWidth={2}
+                            strokeWidth={1.5}
                             d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                         />
                     </svg>
-                </div>
-                <span className="text-xs font-medium text-black/60 dark:text-white/60">
-                    {likeCount}
-                </span>
-            </button>
+                    {likeCount > 0 && (
+                        <span className="tabular-nums">{likeCount}</span>
+                    )}
+                </button>
 
-            {/* 댓글로 이동 */}
-            <button
-                onClick={scrollToComments}
-                className="group flex flex-col items-center gap-1"
-                title="댓글"
-            >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-black/20 bg-white text-black/60 transition-all hover:border-black/40 hover:text-black dark:border-white/20 dark:bg-zinc-800 dark:text-white/60 dark:hover:border-white/40 dark:hover:text-white">
-                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* 구분선 */}
+                <div className="h-6 w-px bg-[var(--blog-border,rgba(0,0,0,0.08))]" />
+
+                {/* 댓글로 이동 */}
+                <button
+                    onClick={scrollToComments}
+                    className="flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium text-[var(--blog-fg)]/60 transition-all hover:bg-[var(--blog-fg)]/5 hover:text-[var(--blog-fg)]"
+                    title="댓글로 이동"
+                >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            strokeWidth={2}
+                            strokeWidth={1.5}
                             d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                         />
                     </svg>
-                </div>
-                <span className="text-xs font-medium text-black/60 dark:text-white/60">
-                    {commentCount}
-                </span>
-            </button>
+                </button>
 
-            {/* 공유 */}
-            <button
-                onClick={handleShare}
-                className="group flex flex-col items-center gap-1"
-                title="공유"
-            >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-black/20 bg-white text-black/60 transition-all hover:border-black/40 hover:text-black dark:border-white/20 dark:bg-zinc-800 dark:text-white/60 dark:hover:border-white/40 dark:hover:text-white">
-                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {/* 구분선 */}
+                <div className="h-6 w-px bg-[var(--blog-border,rgba(0,0,0,0.08))]" />
+
+                {/* 공유 버튼 */}
+                <button
+                    onClick={handleShare}
+                    className="flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium text-[var(--blog-fg)]/60 transition-all hover:bg-[var(--blog-fg)]/5 hover:text-[var(--blog-fg)]"
+                    title="공유하기"
+                >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                            strokeWidth={1.5}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                         />
                     </svg>
-                </div>
-            </button>
+                </button>
+
+                {/* 구분선 */}
+                <div className="h-6 w-px bg-[var(--blog-border,rgba(0,0,0,0.08))]" />
+
+                {/* 맨 위로 버튼 */}
+                <button
+                    onClick={scrollToTop}
+                    className="flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium text-[var(--blog-fg)]/60 transition-all hover:bg-[var(--blog-fg)]/5 hover:text-[var(--blog-fg)]"
+                    title="맨 위로"
+                >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={1.5}
+                            d="M5 10l7-7m0 0l7 7m-7-7v18"
+                        />
+                    </svg>
+                </button>
+            </div>
         </div>
     )
 }

@@ -217,11 +217,7 @@ function ForumContent() {
 
 export default function ForumPage() {
     return (
-        <Suspense fallback={
-            <div className="flex min-h-screen items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-black/10 border-t-black dark:border-white/10 dark:border-t-white" />
-            </div>
-        }>
+        <Suspense fallback={<></>}>
             <ForumContent />
         </Suspense>
     )

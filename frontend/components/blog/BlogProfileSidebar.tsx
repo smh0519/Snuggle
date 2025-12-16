@@ -28,6 +28,7 @@ export default function BlogProfileSidebar({
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [visitorCount, setVisitorCount] = useState(0)
+  const [subscriberCount, setSubscriberCount] = useState(0)
 
   // 프로필 이미지 가져오기 (thumbnail_url 우선, 없으면 profile_image_url)
   useEffect(() => {
@@ -64,6 +65,23 @@ export default function BlogProfileSidebar({
       setVisitorCount(data.today)
     })
   }, [blog.id])
+
+  // 구독자 수 가져오기 (이 블로그 소유자를 구독하는 사람 수)
+  useEffect(() => {
+    const fetchSubscriberCount = async () => {
+      const supabase = createClient()
+      const { count, error } = await supabase
+        .from('subscribe')
+        .select('*', { count: 'exact', head: true })
+        .eq('subed_id', blog.user_id)
+
+      if (!error && count !== null) {
+        setSubscriberCount(count)
+      }
+    }
+
+    fetchSubscriberCount()
+  }, [blog.user_id])
 
   const createdDate = new Date(blog.created_at).toLocaleDateString('ko-KR', {
     year: 'numeric',
@@ -119,7 +137,7 @@ export default function BlogProfileSidebar({
             <p className="text-xs text-[var(--blog-muted)]">게시글</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-[var(--blog-fg)]">0</p>
+            <p className="text-2xl font-bold text-[var(--blog-fg)]">{subscriberCount}</p>
             <p className="text-xs text-[var(--blog-muted)]">구독자</p>
           </div>
           <div className="text-center">

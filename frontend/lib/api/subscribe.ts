@@ -50,29 +50,48 @@ export interface Subscription {
   subed_id: string // 구독 당하는 사람 (상대방)
 }
 
-// 구독 수 가져오기 (구독중, 구독자)
+// 구독 수 가져오기 (구독중 블로그 수, 구독자 수)
 export async function getSubscriptionCounts(userId: string) {
   const supabase = createClient()
 
-  // 내가 구독하는 수 (Following)
-  const { count: followingCount, error: followingError } = await supabase
+  // 1. 내가 구독하는 사용자 ID 목록
+  const { data: subscriptions, error: subError } = await supabase
     .from('subscribe')
-    .select('*', { count: 'exact', head: true })
+    .select('subed_id')
     .eq('sub_id', userId)
 
-  // 나를 구독하는 수 (Followers)
+  if (subError) {
+    console.error('Failed to fetch subscriptions:', subError)
+    throw new Error('Failed to fetch subscription counts')
+  }
+
+  // 2. 구독한 사용자들의 블로그 수 카운트
+  let followingBlogCount = 0
+  if (subscriptions && subscriptions.length > 0) {
+    const targetUserIds = subscriptions.map(s => s.subed_id)
+    const { count, error: blogCountError } = await supabase
+      .from('blogs')
+      .select('*', { count: 'exact', head: true })
+      .in('user_id', targetUserIds)
+
+    if (!blogCountError) {
+      followingBlogCount = count || 0
+    }
+  }
+
+  // 3. 나를 구독하는 수 (Followers) - 사용자 수 기준
   const { count: followersCount, error: followersError } = await supabase
     .from('subscribe')
     .select('*', { count: 'exact', head: true })
     .eq('subed_id', userId)
 
-  if (followingError || followersError) {
-    console.error('Failed to fetch subscription counts:', followingError || followersError)
+  if (followersError) {
+    console.error('Failed to fetch followers count:', followersError)
     throw new Error('Failed to fetch subscription counts')
   }
 
   return {
-    following: followingCount || 0,
+    following: followingBlogCount,
     followers: followersCount || 0,
   }
 }

@@ -88,6 +88,29 @@ body {
   font-family: 'GMarketSans', sans-serif;
 }
 
+/* 시스템 다크모드 설정 시 즉시 적용 (JS 로드 전 깜빡임 방지) */
+@media (prefers-color-scheme: dark) {
+  html:not(.light),
+  html:not(.light) body {
+    background: #000000;
+    color: #ffffff;
+  }
+}
+
+/* 라이트모드 강제 시 */
+html.light,
+html.light body {
+  background: #ffffff;
+  color: #000000;
+}
+
+/* 다크모드 강제 시 */
+html.dark,
+html.dark body {
+  background: #000000;
+  color: #ffffff;
+}
+
 /* 다크모드 전환 시에만 transition 적용 */
 .theme-transitioning,
 .theme-transitioning *,
@@ -137,4 +160,13 @@ body {
   to {
     transform: translateY(0);
   }
+}
+
+/* Progress Bar 다크모드 대응 */
+.dark #nprogress .bar {
+  background: #ffffff !important;
+}
+
+.dark #nprogress .peg {
+  box-shadow: 0 0 10px #ffffff, 0 0 5px #ffffff !important;
 }

@@ -126,7 +126,7 @@ function SearchContent() {
 
 export default function SearchPage() {
     return (
-        <Suspense fallback={<PageLoading />}>
+        <Suspense fallback={<></>}>
             <SearchContent />
         </Suspense>
     )

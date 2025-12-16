@@ -98,52 +98,7 @@ export default function FeedPage() {
 
     // Loading State
     if (loading) {
-        return (
-            <div className="min-h-screen bg-white dark:bg-black">
-                <main className="mx-auto max-w-6xl px-6 py-10">
-                    <div className="flex gap-12">
-                        {/* Main Content Skeleton */}
-                        <div className="min-w-0 flex-1">
-                            <div className="mb-10">
-                                <div className="h-4 w-16 animate-pulse rounded bg-black/5 dark:bg-white/5" />
-                                <div className="mt-2 h-8 w-24 animate-pulse rounded bg-black/5 dark:bg-white/5" />
-                            </div>
-                            <div className="space-y-6">
-                                {[1, 2, 3].map((i) => (
-                                    <div key={i} className="py-6">
-                                        <div className="flex gap-5">
-                                            <div className="flex-1 space-y-3">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="h-6 w-6 animate-pulse rounded-full bg-black/5 dark:bg-white/5" />
-                                                    <div className="h-4 w-24 animate-pulse rounded bg-black/5 dark:bg-white/5" />
-                                                </div>
-                                                <div className="h-5 w-3/4 animate-pulse rounded bg-black/5 dark:bg-white/5" />
-                                                <div className="h-4 w-full animate-pulse rounded bg-black/5 dark:bg-white/5" />
-                                            </div>
-                                            <div className="h-28 w-28 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
-                                        </div>
-                                        <div className="mt-6 h-px bg-black/[0.06] dark:bg-white/[0.06]" />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Sidebar Skeleton */}
-                        <div className="hidden w-72 flex-shrink-0 lg:block">
-                            <div className="mb-4 h-4 w-20 animate-pulse rounded bg-black/5 dark:bg-white/5" />
-                            <div className="space-y-3">
-                                {[1, 2, 3].map((i) => (
-                                    <div key={i} className="flex items-center gap-3">
-                                        <div className="h-10 w-10 animate-pulse rounded-xl bg-black/5 dark:bg-white/5" />
-                                        <div className="h-4 w-24 animate-pulse rounded bg-black/5 dark:bg-white/5" />
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </main>
-            </div>
-        )
+        return <></>
     }
 
     if (!user) return null

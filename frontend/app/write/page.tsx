@@ -464,11 +464,7 @@ function WriteContent() {
 
     // 로딩 상태
     if (loading || isBlogLoading || !blog) {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-white dark:bg-black">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-black/20 border-t-black dark:border-white/20 dark:border-t-white" />
-            </div>
-        )
+        return <></>
     }
 
     return (
@@ -526,11 +522,7 @@ function WriteContent() {
 
 export default function WritePage() {
     return (
-        <Suspense fallback={
-            <div className="flex min-h-screen items-center justify-center bg-white dark:bg-black">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-black/20 border-t-black dark:border-white/20 dark:border-t-white" />
-            </div>
-        }>
+        <Suspense fallback={<></>}>
             <WriteContent />
         </Suspense>
     )

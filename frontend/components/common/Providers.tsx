@@ -6,6 +6,7 @@ import { useUserStore } from '@/lib/store/useUserStore'
 import { syncProfile } from '@/lib/api/profile'
 import ThemeProvider from './ThemeProvider'
 import { ModalProvider } from './Modal'
+import { ToastProvider } from './ToastProvider'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   const { setUser, setLoading } = useUserStore()
@@ -38,7 +39,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <ModalProvider>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </ModalProvider>
     </ThemeProvider>
   )

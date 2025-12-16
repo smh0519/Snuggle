@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useModal } from '@/components/common/Modal'
+import { useToast } from '@/components/common/ToastProvider'
 import { toggleLike } from '@/lib/api/posts'
 import { useUserStore } from '@/lib/store/useUserStore'
 
@@ -18,7 +19,9 @@ export default function PostActions({
 }: PostActionsProps) {
     const [isLiked, setIsLiked] = useState(initialIsLiked)
     const [likeCount, setLikeCount] = useState(initialLikeCount)
+    const [isAnimating, setIsAnimating] = useState(false)
     const { showAlert } = useModal()
+    const { showToast } = useToast()
     const { user } = useUserStore()
 
     useEffect(() => {
@@ -32,6 +35,10 @@ export default function PostActions({
             return
         }
 
+        // 애니메이션 시작
+        setIsAnimating(true)
+        setTimeout(() => setIsAnimating(false), 300)
+
         const prevIsLiked = isLiked
         const prevCount = likeCount
         setIsLiked(!prevIsLiked)
@@ -41,35 +48,35 @@ export default function PostActions({
             const result = await toggleLike(postId)
             setIsLiked(result.is_liked)
             setLikeCount(result.like_count)
-        } catch (error) {
+        } catch {
             setIsLiked(prevIsLiked)
             setLikeCount(prevCount)
-            await showAlert('오류가 발생했습니다.')
+            showToast('오류가 발생했습니다.', 'error')
         }
     }
 
     const handleShare = async () => {
         try {
             await navigator.clipboard.writeText(window.location.href)
-            await showAlert('링크가 복사되었습니다.')
+            showToast('링크가 복사되었습니다.')
         } catch {
-            await showAlert('복사에 실패했습니다.')
+            showToast('복사에 실패했습니다.', 'error')
         }
     }
 
     return (
-        <div className="flex items-center justify-center gap-3">
-            {/* 좋아요 버튼 */}
+        <div className="mt-10 flex items-center justify-center gap-2 border-y border-[var(--blog-border)] py-4">
+            {/* 좋아요 */}
             <button
                 onClick={handleLike}
-                className={`group flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm transition-all duration-200 ${
                     isLiked
-                        ? 'bg-red-500/10 text-red-500'
-                        : 'bg-[var(--blog-fg)]/5 text-[var(--blog-fg)]/60 hover:bg-[var(--blog-fg)]/10 hover:text-[var(--blog-fg)]'
-                }`}
+                        ? 'bg-red-50 text-red-500'
+                        : 'bg-[var(--blog-fg)]/5 text-[var(--blog-muted)] hover:text-[var(--blog-fg)]'
+                } ${isAnimating ? 'scale-95' : 'scale-100'}`}
             >
                 <svg
-                    className={`h-[18px] w-[18px] transition-transform group-active:scale-125 ${isLiked ? 'fill-current' : 'fill-none'}`}
+                    className={`h-4 w-4 transition-transform duration-200 ${isLiked ? 'fill-current' : 'fill-none'} ${isAnimating ? 'scale-125' : 'scale-100'}`}
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                 >
@@ -80,24 +87,18 @@ export default function PostActions({
                         d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                     />
                 </svg>
-                <span>공감</span>
-                {likeCount > 0 && <span className="tabular-nums">{likeCount}</span>}
+                공감 {likeCount > 0 && likeCount}
             </button>
 
-            {/* 공유 버튼 */}
+            {/* 공유 */}
             <button
                 onClick={handleShare}
-                className="flex items-center gap-2 rounded-full bg-[var(--blog-fg)]/5 px-5 py-2.5 text-sm font-medium text-[var(--blog-fg)]/60 transition-all hover:bg-[var(--blog-fg)]/10 hover:text-[var(--blog-fg)]"
+                className="flex items-center gap-1.5 rounded-full bg-[var(--blog-fg)]/5 px-4 py-2 text-sm text-[var(--blog-muted)] transition-colors hover:text-[var(--blog-fg)]"
             >
-                <svg className="h-[18px] w-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                    />
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
-                <span>공유</span>
+                공유
             </button>
         </div>
     )
